@@ -7,14 +7,16 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root{ --accent:#16a34a; }
-    body{font-family:system-ui,Arial,sans-serif;margin:0;background:#fff}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,Arial,sans-serif;margin:0;background:#fff;color:#111}
     header{padding:16px 20px;border-bottom:1px solid #eee;background:#fff;position:sticky;top:0;z-index:10}
-    h1{font-size:1.25rem;margin:0 0 6px}
+    h1{font-size:1.1rem;margin:0 0 6px;font-weight:700}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .hint{color:#555}
+    .hint{color:#555;font-size:0.9rem}
     select,button{padding:8px 10px;border:1px solid #d6d9de;background:#fafafa;border-radius:8px;cursor:pointer}
     button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
     #network{height:80vh}
+    .pill{padding:.1rem .5rem;border-radius:999px;background:#eef6ff;border:1px solid #cfe7ff;color:#1e40af;font-size:.8rem}
 
     body.mode-antes{ --accent:#2b6cb0; }
     body.mode-despues{ --accent:#16a34a; }
@@ -23,16 +25,17 @@
 <body class="mode-despues">
   <header>
     <div class="row">
-      <h1 id="title">Organigrama – OAP</h1>
+      <h1 id="title">Organigramas – OAP</h1>
       <label>
         Equipo:
         <select id="teamSelect"></select>
       </label>
       <button id="btnAntes">Ver ANTES</button>
       <button id="btnDespues" class="active">Ver DESPUÉS</button>
+      <span id="status" class="pill">Listo</span>
     </div>
     <div class="hint">
-      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles).<br/>
+      Clic en la <b>raíz</b> para plegar/desplegar el primer nivel. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles).<br/>
       En <b>OAP</b>, clic en un equipo abre su subdiagrama; dentro del equipo, la <b>Jefa OAP</b> queda fija arriba.
     </div>
   </header>
@@ -40,361 +43,547 @@
   <div id="network"></div>
 
   <script>
-    /********** Config **********/
+    /*****************************************************************
+     *  MOCK DATA (puedes borrar esta sección cuando uses tus JSON)  *
+     *****************************************************************/
+    const MOCK_DATA = {
+      "oap": {
+        "meta": { "equipo":"OAP General", "titulo":"Vista General" },
+        "before": {
+          "label":"Jefa OAP – M. Rodríguez (ANTES)",
+          "roles":[
+            { "id":"eq_4p", "name":"Equipo 4P", "route":"4p" },
+            { "id":"eq_gc", "name":"Gestión del Conocimiento", "route":"gestion_conocimiento" },
+            { "id":"eq_ti", "name":"TI", "route":"ti" },
+            { "id":"eq_adm", "name":"Administrativo", "route":"administrativo" }
+          ],
+          "subroles": {}
+        },
+        "after": {
+          "label":"Jefa OAP – M. Rodríguez (DESPUÉS)",
+          "roles":[
+            { "id":"eq_4p", "name":"Equipo 4P", "route":"4p" },
+            { "id":"eq_gc", "name":"Gestión del Conocimiento", "route":"gestion_conocimiento" },
+            { "id":"eq_ti", "name":"TI", "route":"ti" },
+            { "id":"eq_adm", "name":"Administrativo", "route":"administrativo" },
+            { "id":"eq_mipg", "name":"MIPG", "route":"mipg" }
+          ],
+          "subroles": {}
+        }
+      },
+      "4p": {
+        "meta": { "equipo":"4P", "leaderId":"lider_4p" },
+        "before": {
+          "label":"Equipo 4P – (ANTES)",
+          "roles":[
+            { "id":"lider_4p", "name":"Líder", "person":"Ana Pérez", "planta":true },
+            { "id":"rol_planeacion", "name":"Planeación", "person":"(vacante)" },
+            { "id":"rol_proyectos", "name":"Proyectos", "person":"Carlos Ruiz", "planta":true }
+          ],
+          "subroles": {
+            "rol_proyectos":[
+              { "id":"sub_eval", "name":"Evaluación", "person":"Lucía Quintero" },
+              { "id":"sub_seguimiento", "name":"Seguimiento", "person":"(nuevo perfil)" }
+            ]
+          }
+        },
+        "after": {
+          "label":"Equipo 4P – (DESPUÉS)",
+          "roles":[
+            { "id":"lider_4p", "name":"Líder", "person":"Ana Pérez", "planta":true },
+            { "id":"rol_planeacion", "name":"Planeación", "person":"Diego Mora" },
+            { "id":"rol_proyectos", "name":"Proyectos", "person":"Carlos Ruiz", "planta":true },
+            { "id":"rol_control", "name":"Control de Gestión", "person":"María León" }
+          ],
+          "subroles": {
+            "rol_proyectos":[
+              { "id":"sub_eval", "name":"Evaluación", "person":"Lucía Quintero" },
+              { "id":"sub_seguimiento", "name":"Seguimiento", "person":"(nuevo perfil)" },
+              { "id":"sub_pm", "name":"PMO", "person":"(nuevo perfil)" }
+            ]
+          }
+        }
+      },
+      "gestion_conocimiento": {
+        "meta": { "equipo":"Gestión del Conocimiento", "leaderId":"lider_gc" },
+        "before": {
+          "label":"Gestión del Conocimiento – (ANTES)",
+          "roles":[
+            { "id":"lider_gc", "name":"Líder", "person":"Camila Peña", "planta":true },
+            { "id":"rol_docs", "name":"Documentación", "person":"Laura Soto" }
+          ],
+          "subroles": {}
+        },
+        "after": {
+          "label":"Gestión del Conocimiento – (DESPUÉS)",
+          "roles":[
+            { "id":"lider_gc", "name":"Líder", "person":"Camila Peña", "planta":true },
+            { "id":"rol_docs", "name":"Documentación", "person":"Laura Soto" },
+            { "id":"rol_analitica", "name":"Analítica", "person":"(nuevo perfil)" }
+          ],
+          "subroles": {
+            "rol_analitica":[
+              { "id":"sub_datos", "name":"Datos", "person":"(nuevo perfil)" }
+            ]
+          }
+        }
+      },
+      "ti": {
+        "meta": { "equipo":"TI", "leaderId":"lider_ti" },
+        "before": {
+          "label":"TI – (ANTES)",
+          "roles":[
+            { "id":"lider_ti", "name":"Líder", "person":"Sergio Rincón" },
+            { "id":"rol_soporte", "name":"Soporte", "person":"(vacante)" }
+          ],
+          "subroles": {}
+        },
+        "after": {
+          "label":"TI – (DESPUÉS)",
+          "roles":[
+            { "id":"lider_ti", "name":"Líder", "person":"Sergio Rincón" },
+            { "id":"rol_soporte", "name":"Soporte", "person":"Paula Niño" },
+            { "id":"rol_dev", "name":"Desarrollo", "person":"(nuevo perfil)" }
+          ],
+          "subroles": {
+            "rol_dev":[
+              { "id":"sub_fe", "name":"Front-end", "person":"(nuevo perfil)" },
+              { "id":"sub_be", "name":"Back-end", "person":"(nuevo perfil)" }
+            ]
+          }
+        }
+      },
+      "administrativo": {
+        "meta": { "equipo":"Administrativo" },
+        "before": {
+          "label":"Administrativo – (ANTES)",
+          "roles":[
+            { "id":"rol_compras", "name":"Compras", "person":"(vacante)" }
+          ],
+          "subroles": {}
+        },
+        "after": {
+          "label":"Administrativo – (DESPUÉS)",
+          "roles":[
+            { "id":"rol_compras", "name":"Compras", "person":"Luisa Varela" },
+            { "id":"rol_talento", "name":"Talento Humano", "person":"(nuevo perfil)" }
+          ],
+          "subroles": {}
+        }
+      },
+      "mipg": {
+        "meta": { "equipo":"MIPG", "leaderId":"lider_mipg" },
+        "before": {
+          "label":"MIPG – (ANTES)",
+          "roles":[
+            { "id":"lider_mipg", "name":"Líder", "person":"(vacante)" }
+          ],
+          "subroles": {}
+        },
+        "after": {
+          "label":"MIPG – (DESPUÉS)",
+          "roles":[
+            { "id":"lider_mipg", "name":"Líder", "person":"Valentina Rojas" },
+            { "id":"rol_calidad", "name":"Gestión de Calidad", "person":"(nuevo perfil)" }
+          ],
+          "subroles": {}
+        }
+      }
+    };
+
+    // Interceptor de fetch para que funcione sin servidor
+    const realFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts) => {
+      try{
+        const m = String(url).match(/data\/([^.?/]+)\.json/i);
+        if(m){
+          const key = m[1];
+          if(MOCK_DATA[key]){
+            return new Response(JSON.stringify(MOCK_DATA[key]), {status:200, headers:{'Content-Type':'application/json'}});
+          }
+        }
+      }catch(_){}
+      return realFetch(url, opts);
+    };
+
+    /****************** CONFIG GENERAL ******************/
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
+
+    // Niveles requeridos:
+    // 0: Jefa (sticky root)
+    // 1: Equipos principales (en OAP) / Nodo del equipo bajo Jefa en vista de equipo
+    // 2: Roles/Líderes
+    // 3: Personas de rol
+    // 4: Subroles
+    // 5: Personas de subroles
+    const LEVEL_Y_GAP = 130;   // separación vertical constante
+    const MIN_GAP = 300;       // separación horizontal mínima entre hermanos
+
     let currentKey = "oap";
-
-    // Modo (antes/después)
-    let MODE = "DESPUES";
-
-    // Conjuntos para aperturas
-    const expandedRoot  = new Set();   // raíces con roles desplegados
-    const openedPersons = new Set();   // nodos-persona abiertos
-    const openedSubroles = new Set();  // roles con subroles abiertos
-
-    // Estructuras en memoria del equipo cargado
+    let MODE = "DESPUÉS"; // ANTES o DESPUÉS
     let orgBefore = null, orgAfter = null;
 
-    // Datos “Jefa”
     let JEFA_LABEL = "Jefa OAP";
-    let JEFA_PERSON = "";
+    let JEFA_PERSON = "M. Rodríguez";
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
-
-    // Líder (opcional forzado por JSON)
     let LEADER_NODE_ID = null;
 
-    // Para evitar caché
-    const BUST = () => `v=${Date.now()}`;
-
-    // ---- Parámetros de layout manual ----
-    const MIN_GAP    = 220; // separación horizontal mínima (px) entre hojas
-    const LEVEL_SEP  = 110; // separación vertical (px) entre niveles
-
-    /********** vis-network **********/
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
     const container = document.getElementById("network");
+    const statusEl = document.getElementById("status");
 
-    // Desactivamos layout jerárquico (haremos layout manual) y physics
-    const options = {
-      layout: { hierarchical: false },
-      physics: { enabled: false },
-      nodes:{
-        shape:"box", margin:10, borderWidth:1,
-        color:{ background:"#fff", border:"#9aa3af" }
-      },
-      edges:{
-        color:{ color: '#cbd5e1' },
-        smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" }
-      },
-      interaction:{ hover:true, selectable:true }
-    };
+    const EDGE_COLOR = '#cbd5e1';
+    function baseOptions(){
+      return {
+        layout: { hierarchical: {
+          enabled:true,
+          direction:"UD",
+          levelSeparation: LEVEL_Y_GAP,
+          nodeSpacing: MIN_GAP,       // solo guía; luego fijamos x,y manualmente
+          parentCentralization:true,
+          blockShifting:false,
+          edgeMinimization:true,
+          sortMethod:"directed"
+        }},
+        physics:false,                // física desactivada SIEMPRE
+        nodes:{
+          shape:"box", margin:10, borderWidth:1,
+          color:{ background:"#fff", border:"#9aa3af" },
+          font:{ multi:false }
+        },
+        edges:{
+          color:{ color: EDGE_COLOR },
+          smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" }
+        },
+        interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true }
+      };
+    }
+    let options = baseOptions();
     const network = new vis.Network(container, { nodes, edges }, options);
 
-    /********** helpers **********/
-    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#16a34a';
-    const isNoiseLabel = (s="") => /^\s*\(.*\)\s*$/.test(s) || /ver\s+analistas|varios\s+apoyos?/i.test(s);
-    const isPersonLike = (sr) => (sr?.person && sr.person.trim()) || /nuevo\s+perfil|perfil\s+nuevo/i.test(sr?.name||"");
+    const expandedRoot  = new Set();
+    const openedPersons = new Set();
+    const openedSubroles = new Set();
 
-    function cleanPhase(lbl){
-      if(!lbl) return '';
-      return lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'')
-                .replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'')
-                .trim();
-    }
+    /****************** HELPERS ******************/
+    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#16a34a';
+    const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
     function splitTitlePerson(lbl){
       if(!lbl) return {title:"", person:""};
       const base = cleanPhase(lbl);
       const m = base.match(/^(.+?)\s*[–-]\s*(.+)$/);
       return m ? { title:m[1].trim(), person:m[2].trim() } : { title:base, person:"" };
     }
+    function setStatus(msg){ statusEl.textContent = msg; }
     function applyTheme(){
       document.getElementById("btnAntes").classList.toggle('active', MODE==="ANTES");
       document.getElementById("btnDespues").classList.toggle('active', MODE!=="ANTES");
       document.body.classList.toggle('mode-antes', MODE==="ANTES");
       document.body.classList.toggle('mode-despues', MODE!=="ANTES");
     }
+
     function clearAll(){
       nodes.clear(); edges.clear();
       expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
     }
-    function mountRootNode(id, label){
-      nodes.add({ id, label, shape:"box", color:{ background:"#fff", border:accent() }, borderWidth:2 });
+
+    function mountBox(id, label, level, extra={}){
+      const base = {
+        id, label, level, shape:"box",
+        color:{ background:"#fff", border:"#9aa3af" },
+        borderWidth:1
+      };
+      nodes.add(Object.assign(base, extra));
     }
 
-    /********** utilidades de grafo **********/
+    function addEdge(from, to){
+      const id = `${from}-${to}`;
+      if(!edges.get(id)) edges.add({ id, from, to });
+    }
+
+    /****************** ESPACIADO Y FIJACIÓN ******************/
+    // Calcula Y a partir del nivel; si el nodo no tiene level, se mantiene
+    function applyVerticalByLevel(y0=0){
+      const all = nodes.get();
+      nodes.update(all.map(n => {
+        const level = (typeof n.level==='number') ? n.level : null;
+        if(level===null) return { id:n.id }; // no tocar
+        return { id:n.id, y: y0 + level*LEVEL_Y_GAP };
+      }));
+    }
+
+    // Retorna hijos visibles de un padre
     function childrenOf(parentId){
-      // hijos visibles del grafo actual
       return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
     }
-    function setPos(id, x, y){
-      // fijamos completamente
-      nodes.update({ id, x, y, fixed:{ x:true, y:true } });
+
+    // Distribuye los hijos uniformemente (gap mínimo), centrados respecto al padre,
+    // manteniendo Y (ya establecida por nivel)
+    function spreadChildren(parentId, gap = MIN_GAP){
+      const kids = childrenOf(parentId);
+      if(kids.length < 2) return;
+
+      const p = network.getPositions([parentId])[parentId] || {x:0,y:0};
+      const posKids = network.getPositions(kids);
+      kids.sort((a,b) => (posKids[a]?.x || 0) - (posKids[b]?.x || 0));
+
+      const total = (kids.length - 1) * gap;
+      let startX = p.x - total / 2;
+
+      const updates = kids.map((id, i) => ({ id, x: Math.round(startX + i * gap) }));
+      nodes.update(updates);
     }
 
-    /********** Layout manual tipo árbol **********/
-    function computeSubtreeSize(id, memo = new Map()){
-      if (memo.has(id)) return memo.get(id);
-      const kids = childrenOf(id);
-      if (kids.length === 0){
-        memo.set(id, 1); // hoja visible => 1 “unidad”
-        return 1;
-      }
-      let s = 0;
-      for (const k of kids) s += computeSubtreeSize(k, memo);
-      // Nunca menos de 1
-      s = Math.max(1, s);
-      memo.set(id, s);
-      return s;
-    }
-
-    function layoutTree(id, leftX, depth, memo){
-      // ancho total del subárbol en “unidades”
-      const units = computeSubtreeSize(id, memo);
-      const totalWidth = units * MIN_GAP;
-      const xCenter = leftX + totalWidth / 2;
-      const y = depth * LEVEL_SEP;
-      setPos(id, xCenter, y);
-
-      // hijos, cada uno ocupa ancho proporcional a su subárbol
-      const kids = childrenOf(id);
-      if (kids.length === 0) return;
-
-      let cursor = leftX;
-      for (const k of kids){
-        const wUnits = computeSubtreeSize(k, memo);
-        const w = wUnits * MIN_GAP;
-        // posición del hijo = centro de su segmento
-        layoutTree(k, cursor, depth + 1, memo);
-        cursor += w;
-      }
-    }
-
-    function relayout(){
-      // Determinar raíz visible:
-      // - En OAP: raíz = orgBefore.id u orgAfter.id
-      // - En equipos: raíz = STICKY_ID (para incluir a la jefa)
-      const root = (currentKey === "oap")
-        ? (MODE === "ANTES" ? orgBefore.id : orgAfter.id)
-        : STICKY_ID;
-
-      if (!root || !nodes.get(root)) return;
-
-      // Desbloquear posiciones antes de reubicar
-      nodes.update(nodes.get().map(n => ({ id:n.id, fixed:false })));
-
-      const memo = new Map();
-      const totalUnits = computeSubtreeSize(root, memo);
-      // arrancamos el layout a partir de X = 0 (network.fit centrará)
-      layoutTree(root, 0, 0, memo);
-
-      // encuadre
-      network.fit({ animation: { duration: 200 } });
-    }
-
-    /********** altas/bajas de nodos **********/
-    function addRoles(parentId, roles){
-      roles.forEach(r=>{
-        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box" });
-        const eid = `${parentId}-${r.id}`;
-        if(!edges.get(eid)) edges.add({ id:eid, from:parentId, to:r.id });
+    // Aplica espaciado a TODOS los padres presentes
+    function applyHorizontalSpacingAll(gap=MIN_GAP){
+      const allEdges = edges.get();
+      const parents = Array.from(new Set(allEdges.map(e => e.from)));
+      // ordenar por nivel: de arriba hacia abajo para propagar bien el centrado
+      parents.sort((a,b) => {
+        const na = nodes.get(a), nb = nodes.get(b);
+        return (na?.level||0) - (nb?.level||0);
       });
-      expandedRoot.add(parentId);
-      relayout();
-    }
-    function removeRoles(parentId, roles){
-      roles.forEach(r=>{
-        const pid = `${r.id}_P`;
-        if(openedPersons.has(pid)){
-          try{nodes.remove(pid);}catch{}; try{edges.remove(`${r.id}-${pid}`);}catch{}; openedPersons.delete(pid);
-        }
-        closeSubroles(r.id);
-        try{ edges.remove(`${parentId}-${r.id}`);}catch{}
-        try{ nodes.remove(r.id);}catch{}
-      });
-      expandedRoot.delete(parentId);
-      relayout();
+      parents.forEach(pid => spreadChildren(pid, gap));
     }
 
-    // —— PERSONAS (click) —— (si hay persona, cuelga un nodo-hoja)
-    function togglePerson(role){
-      if (!role.person || !role.person.trim()) return;
-      const pid = `${role.id}_P`;
+    // Fija todas las posiciones actuales (x,y) para layout estable
+    function fixAllPositions(fix=true){
+      const all = nodes.get();
+      nodes.update(all.map(n => ({ id:n.id, fixed:{ x:fix, y:fix } })));
+    }
+
+    // Reset de fijación (por si se requiere recomputar)
+    function unfixAllPositions(){
+      const all = nodes.get();
+      nodes.update(all.map(n => ({ id:n.id, fixed:{ x:false, y:false } })));
+    }
+
+    // Pipeline de layout estable:
+    // 1) establecer Y por nivel, 2) espaciar hermanos, 3) fijar, 4) fit
+    function stabilizeAndFit(anim=200){
+      setStatus("Ajustando layout…");
+      unfixAllPositions();
+      applyVerticalByLevel(0);
+      // dejar que vis calcule posiciones base (microtask)
+      setTimeout(() => {
+        applyHorizontalSpacingAll(MIN_GAP);
+        setTimeout(() => {
+          fixAllPositions(true);
+          network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
+          setStatus("Listo");
+        }, 0);
+      }, 0);
+    }
+
+    /****************** LÓGICA DE NODOS (personas / subroles) ******************/
+    function togglePersonNode(roleId, personLabel, level, planta=false){
+      if(!personLabel || !String(personLabel).trim()) return;
+      const pid = `${roleId}_P`;
       if(openedPersons.has(pid)){
-        try{nodes.remove(pid);}catch{}; try{edges.remove(`${role.id}-${pid}`);}catch{}; openedPersons.delete(pid);
-      }else{
-        const node = { id:pid, label:role.person.trim(), shape:"box", font:{ italics:true } };
-        if(role.planta) node.color = { background:"#efe9ff", border:"#7a5cff" };
-        nodes.add(node);
-        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
-        openedPersons.add(pid);
+        try{ nodes.remove(pid); }catch(_){}
+        try{ edges.remove(`${roleId}-${pid}`); }catch(_){}
+        openedPersons.delete(pid);
+        return;
       }
-      relayout();
+      const extra = { font:{ italics:true } };
+      if(planta) extra.color = { background:"#efe9ff", border:"#7a5cff" };
+      mountBox(pid, String(personLabel).trim(), level, extra);
+      addEdge(roleId, pid);
+      openedPersons.add(pid);
     }
 
-    function toggleSubroles(roleId, arr){
-      if(!arr || !arr.length) return;
+    function toggleSubroles(roleId, subrolesArr, roleLevel){
+      if(!subrolesArr || !subrolesArr.length) return;
+
       if(openedSubroles.has(roleId)){
-        arr.forEach(sr=>{
-          const rid = sr.id;
-          const pid = `${rid}_P`;
-          try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
-          try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+        // cerrar
+        subrolesArr.forEach(sr=>{
+          const rid = sr.id, pid = `${rid}_P`;
+          try{ nodes.remove(pid); }catch(_){}
+          try{ edges.remove(`${rid}-${pid}`); }catch(_){}
+          try{ nodes.remove(rid); }catch(_){}
+          try{ edges.remove(`${roleId}-${rid}`); }catch(_){}
+          openedPersons.delete(pid);
         });
         openedSubroles.delete(roleId);
-      }else{
-        arr.forEach(sr=>{
-          if(isNoiseLabel(sr.name)) return;
-          if(isPersonLike(sr)){
-            const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
-            const pid = `${sr.id}_P`;
-            if(!nodes.get(pid)) nodes.add({ id:pid, label, shape:"box", font:{ italics:true } });
-            if(!edges.get(`${roleId}-${pid}`)) edges.add({ id:`${roleId}-${pid}`, from:roleId, to:pid });
-          }else{
-            if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box" });
-            if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
-          }
-        });
-        openedSubroles.add(roleId);
+        return;
       }
-      relayout();
-    }
-    function closeSubroles(roleId){
-      const arr = orgAfter?.subroles?.[roleId];
-      if(!arr || !openedSubroles.has(roleId)) return;
-      arr.forEach(sr=>{
-        const rid = sr.id, pid = `${rid}_P`;
-        try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
-        try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+
+      // abrir
+      const subLevel = roleLevel + 2;   // Nivel 4: subrol
+      const personLevel = subLevel + 1; // Nivel 5: persona del subrol
+      subrolesArr.forEach(sr=>{
+        mountBox(sr.id, sr.name, subLevel);
+        addEdge(roleId, sr.id);
+        const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
+        if(label){
+          mountBox(`${sr.id}_P`, label, personLevel, { font:{ italics:true } });
+          addEdge(sr.id, `${sr.id}_P`);
+          openedPersons.add(`${sr.id}_P`);
+        }
       });
-      openedSubroles.delete(roleId);
+      openedSubroles.add(roleId);
     }
 
-    // —— Recolgar bajo LÍDER (si existe) ——
-    function rewireUnderLeaderIfAny(rootId, roles){
-      let leaderId = LEADER_NODE_ID;
+    /****************** RE-CABLEO BAJO LÍDER ******************/
+    function rewireUnderLeaderIfAny(rootId, roles, leaderIdFromMeta){
+      let leaderId = leaderIdFromMeta || null;
       if(!leaderId){
         const cand = roles.find(r=>/^\s*l[ií]der\s*$/i.test(r.name));
         leaderId = cand?.id || null;
       }
       if(!leaderId || !nodes.get(leaderId)) return;
 
+      // poner líder en nivel 2; resto de roles nivel 2 o 2+ según tipo
+      nodes.update({ id: leaderId, level: 2 });
+
       roles.forEach(r=>{
         if(r.id === leaderId) return;
-        const prevEdgeId = `${rootId}-${r.id}`;
-        if (edges.get(prevEdgeId)) edges.remove(prevEdgeId);
-        const eid = `${leaderId}-${r.id}`;
-        if(!edges.get(eid)) edges.add({ id:eid, from: leaderId, to: r.id });
+        // re-conectar al líder
+        try{ edges.remove(`${rootId}-${r.id}`); }catch(_){}
+        addEdge(leaderId, r.id);
+        // si es persona del rol, su nivel es 3
+        nodes.update({ id: r.id, level: 2 });
       });
     }
 
-    /********** montajes **********/
-    function mountOAPBefore(){
-      MODE="ANTES"; applyTheme();
-      clearAll();
-
-      const {title, person} = splitTitlePerson(orgBefore.label);
-      if(title) JEFA_LABEL = cleanPhase(title);
-      if(person) JEFA_PERSON = person;
-
-      mountRootNode(orgBefore.id, JEFA_LABEL);
-      addRoles(orgBefore.id, orgBefore.roles);
-      updateCountsUI();
-      enrichCountsForOAP(orgAfter.roles);
-    }
-    function mountOAPAfter(){
-      MODE="DESPUES"; applyTheme();
-      clearAll();
-
-      const {title, person} = splitTitlePerson(orgAfter.label);
-      if(title) JEFA_LABEL = cleanPhase(title);
-      if(person) JEFA_PERSON = person;
-
-      mountRootNode(orgAfter.id, JEFA_LABEL);
-      addRoles(orgAfter.id, orgAfter.roles);
-      updateCountsUI();
-      enrichCountsForOAP(orgAfter.roles);
-    }
-
-    function mountTeamBefore(){
-      MODE="ANTES"; applyTheme();
-      clearAll();
-
-      TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
-      // Jefa
-      mountRootNode(STICKY_ID, JEFA_LABEL);
-      // Nodo del equipo
-      nodes.add({ id:TEAM_ROOT_ID, label:cleanPhase(orgBefore.label), shape:"box" });
-      edges.add({ id:`${STICKY_ID}-${TEAM_ROOT_ID}`, from:STICKY_ID, to:TEAM_ROOT_ID });
-
-      addRoles(TEAM_ROOT_ID, orgBefore.roles);
-      rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgBefore.roles);
-    }
-    function mountTeamAfter(){
-      MODE="DESPUES"; applyTheme();
-      clearAll();
-
-      TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
-      mountRootNode(STICKY_ID, JEFA_LABEL);
-      nodes.add({ id:TEAM_ROOT_ID, label:cleanPhase(orgAfter.label), shape:"box" });
-      edges.add({ id:`${STICKY_ID}-${TEAM_ROOT_ID}`, from:STICKY_ID, to:TEAM_ROOT_ID });
-
-      addRoles(TEAM_ROOT_ID, orgAfter.roles);
-      rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgAfter.roles);
-    }
-
+    /****************** CARGA Y MONTAJES ******************/
     function updateCountsUI(){
       document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
       document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
     }
 
-    // En OAP, etiqueta cada equipo con el número de roles “después”
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
       for(const r of roles){
         if(!r.route) continue;
         try{
-          const res = await fetch(`data/${r.route}.json?${BUST()}`);
+          const res = await fetch(`data/${r.route}.json?cb=${Date.now()}`);
           const data = await res.json();
           const n = (data.after?.roles?.length ?? 0);
           const base = String(r.name).replace(/\s*\(\d+\)\s*$/,'').trim();
           nodes.update({ id:r.id, label:`${base} (${n})` });
         }catch(_){}
       }
-      relayout();
     }
 
-    /********** carga **********/
+    function baseNetworkOptions(){
+      network.setOptions(baseOptions());
+    }
+
+    function mountOAP(view="DESPUÉS"){
+      MODE = view;
+      applyTheme();
+      clearAll();
+      baseNetworkOptions();
+
+      const data = (view==="ANTES") ? orgBefore : orgAfter;
+      const {title, person} = splitTitlePerson(data.label);
+      JEFA_LABEL = title || JEFA_LABEL;
+      JEFA_PERSON = person || JEFA_PERSON;
+
+      // Nivel 0: Jefa
+      mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
+
+      // Nivel 1: Equipos
+      (data.roles || []).forEach(r=>{
+        mountBox(r.id, r.name, 1);
+        addEdge(data.id, r.id);
+      });
+
+      updateCountsUI();
+      // Enriquecer etiquetas con conteos de roles del equipo
+      enrichCountsForOAP(data.roles);
+
+      // Pipeline estable
+      stabilizeAndFit(160);
+    }
+
+    function mountTeam(view="DESPUÉS"){
+      MODE = view;
+      applyTheme();
+      clearAll();
+      baseNetworkOptions();
+
+      const data = (view==="ANTES") ? orgBefore : orgAfter;
+
+      // Nivel 0: Jefa (sticky root)
+      mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
+
+      // Nivel 1: Equipo
+      TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
+      mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 1);
+      addEdge(STICKY_ID, TEAM_ROOT_ID);
+
+      // Nivel 2: Roles/Líderes
+      (data.roles || []).forEach(r=>{
+        mountBox(r.id, r.name, 2);
+        addEdge(TEAM_ROOT_ID, r.id);
+        // Si el rol trae persona, se podrá abrir con clic (nivel 3)
+      });
+
+      // Si hay líder meta, re-cablear bajo líder
+      rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
+
+      updateCountsUI();
+
+      // Abrir automáticamente personas/subroles para inspección (opcional):
+      // openAllTeamLevels(data);  // <- si quisieras autoabrir todo
+
+      stabilizeAndFit(160);
+    }
+
+    function openAllTeamLevels(data){
+      (data.roles || []).forEach(r=>{
+        if (r.person && r.person.trim()) togglePersonNode(r.id, r.person, 3, !!r.planta);
+        const arr = data.subroles?.[r.id];
+        if(arr && arr.length) toggleSubroles(r.id, arr, 2);
+      });
+      // Después de abrir, volver a estabilizar
+      stabilizeAndFit(120);
+    }
+
     async function loadTeam(key){
+      setStatus("Cargando…");
       try{
-        const res = await fetch(`data/${key}.json?${BUST()}`);
+        const res = await fetch(`data/${key}.json?cb=${Date.now()}`);
         const data = await res.json();
         const prefix = key.toUpperCase();
 
-        const beforeRoles = (data.before.roles || []).map(r => ({
-          id:`${prefix}_${r.id}`, name:r.name, person:r.person||"", planta:!!r.planta, route:r.route||""
-        }));
-        const afterRoles  = (data.after.roles  || []).map(r => ({
-          id:`${prefix}_${r.id}`, name:r.name, person:r.person||"", planta:!!r.planta, route:r.route||""
-        }));
-
-        const sub = {};
-        if (data.after.subroles){
-          for (const roleId in data.after.subroles){
-            sub[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr => ({
-              id:`${prefix}_${sr.id}`, name:sr.name, person:sr.person||"", planta:!!sr.planta, route:sr.route||""
-            }));
+        function mapRoles(block){
+          return (block.roles || []).map(r => ({
+            id:`${prefix}_${r.id}`, name:r.name, person:r.person||"", planta:!!r.planta, route:r.route||""
+          }));
+        }
+        function mapSubroles(block){
+          const out = {};
+          if(block.subroles){
+            for(const roleId in block.subroles){
+              out[`${prefix}_${roleId}`] = block.subroles[roleId].map(sr=>({
+                id:`${prefix}_${sr.id}`, name:sr.name, person:sr.person||"", planta:!!sr.planta
+              }));
+            }
           }
+          return out;
         }
 
-        // líder forzado por JSON (opcional)
-        LEADER_NODE_ID = null;
-        if(data.meta?.leaderId) LEADER_NODE_ID = `${prefix}_${data.meta.leaderId}`;
+        LEADER_NODE_ID = data.meta?.leaderId ? `${prefix}_${data.meta.leaderId}` : null;
 
-        orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles:beforeRoles };
-        orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles:afterRoles, subroles:sub };
+        orgBefore = {
+          id:`ROOT_BEFORE_${prefix}`,
+          label:data.before.label || `${data.meta?.equipo||key} – ANTES`,
+          roles: mapRoles(data.before),
+          subroles: mapSubroles(data.before)
+        };
+        orgAfter = {
+          id:`ROOT_AFTER_${prefix}`,
+          label:data.after.label || `${data.meta?.equipo||key} – DESPUÉS`,
+          roles: mapRoles(data.after),
+          subroles: mapSubroles(data.after)
+        };
 
         if(key==="oap"){
           const {title, person} = splitTitlePerson(orgAfter.label);
@@ -408,97 +597,134 @@
         currentKey = key;
         document.getElementById("teamSelect").value = key;
 
-        if(key==="oap") mountOAPAfter(); else mountTeamAfter();
+        // Vista por defecto: DESPUÉS
+        if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
+        setStatus("Listo");
       }catch(err){
         console.error(err);
+        setStatus("Error al cargar");
         alert(`No pude cargar data/${key}.json`);
       }
     }
 
-    /********** interacción **********/
+    /****************** INTERACCIÓN (CLICKS) ******************/
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
 
-      // OAP
+      // Vista OAP
       if(currentKey === "oap"){
-        if(MODE==="ANTES"){
-          if(id===orgBefore.id){
-            expandedRoot.has(orgBefore.id) ? removeRoles(orgBefore.id, orgBefore.roles)
-                                            : addRoles(orgBefore.id, orgBefore.roles);
+        const data = (MODE==="ANTES") ? orgBefore : orgAfter;
+
+        if(id===data.id){
+          // raíz: toggle primer nivel
+          if(expandedRoot.has(data.id)){
+            // colapsar
+            (data.roles||[]).forEach(r=>{
+              try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
+              try{ nodes.remove(r.id);}catch(_){}
+            });
+            expandedRoot.delete(data.id);
+            stabilizeAndFit(120);
+            return;
+          }else{
+            // expandir
+            (data.roles||[]).forEach(r=>{
+              if(!nodes.get(r.id)) mountBox(r.id, r.name, 1);
+              addEdge(data.id, r.id);
+            });
+            expandedRoot.add(data.id);
+            stabilizeAndFit(120);
             return;
           }
-          const role = orgBefore.roles.find(r=>r.id===id);
-          if(!role) return;
-          if(role.route) return loadTeam(role.route);
-          return togglePerson(role);
-        }else{
-          if(id===orgAfter.id){
-            expandedRoot.has(orgAfter.id) ? removeRoles(orgAfter.id, orgAfter.roles)
-                                           : addRoles(orgAfter.id, orgAfter.roles);
-            return;
-          }
-          const role = orgAfter.roles.find(r=>r.id===id);
-          if(!role) return;
-          if(role.route) return loadTeam(role.route);
-          togglePerson(role);
-          toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
+        }
+
+        // clic en equipo dentro de OAP abre su subdiagrama
+        const role = (data.roles||[]).find(r=>r.id===id);
+        if(role && role.route){
+          loadTeam(role.route);
+          return;
+        }
+
+        // clic en “rol” normal dentro de OAP (si existiera)
+        if(role && !role.route){
+          // persona nivel 3 (en OAP, rol ya está en 1; para roles directos bajo OAP usamos 2/3)
+          nodes.update({ id: role.id, level: 2 });
+          togglePersonNode(role.id, role.person, 3, !!role.planta);
+          stabilizeAndFit(120);
         }
         return;
       }
 
-      // Equipo con “Jefa” arriba
-      const teamRoot = TEAM_ROOT_ID;
-      if(MODE==="ANTES"){
-        if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }); return; }
+      // Vista de equipo (con sticky root)
+      const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-        // Clic en LÍDER abre/cierra como el nodo del equipo
-        if(LEADER_NODE_ID && id === LEADER_NODE_ID){
-          if(expandedRoot.has(teamRoot)) removeRoles(teamRoot, orgBefore.roles);
-          else { addRoles(teamRoot, orgBefore.roles); rewireUnderLeaderIfAny(teamRoot, orgBefore.roles); }
-          return;
-        }
+      if(id===STICKY_ID){
+        // Jefa: ver/ocultar persona (nivel 1 ó 3 no aplica; la persona se muestra en 1)
+        togglePersonNode(STICKY_ID, JEFA_PERSON, 1, true);
+        stabilizeAndFit(120);
+        return;
+      }
 
-        if(id===teamRoot){
-          expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgBefore.roles)
-                                     : (addRoles(teamRoot, orgBefore.roles), rewireUnderLeaderIfAny(teamRoot, orgBefore.roles));
-          return;
+      if(id===TEAM_ROOT_ID){
+        // toggle expansión de roles bajo el equipo
+        if(expandedRoot.has(TEAM_ROOT_ID)){
+          (data.roles||[]).forEach(r=>{
+            // cerrar todo lo abierto bajo el equipo
+            const pid = `${r.id}_P`;
+            if(openedPersons.has(pid)){ try{nodes.remove(pid);}catch(_){ } try{edges.remove(`${r.id}-${pid}`);}catch(_){ } openedPersons.delete(pid); }
+            const subs = data.subroles?.[r.id] || [];
+            if(openedSubroles.has(r.id)){
+              subs.forEach(sr=>{
+                const rid = sr.id, sp = `${rid}_P`;
+                try{ nodes.remove(sp); }catch(_){}
+                try{ edges.remove(`${rid}-${sp}`);}catch(_){}
+                try{ nodes.remove(rid);}catch(_){}
+                try{ edges.remove(`${r.id}-${rid}`);}catch(_){}
+                openedPersons.delete(sp);
+              });
+              openedSubroles.delete(r.id);
+            }
+            try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
+            try{ nodes.remove(r.id);}catch(_){}
+          });
+          expandedRoot.delete(TEAM_ROOT_ID);
+          stabilizeAndFit(120);
+        }else{
+          (data.roles||[]).forEach(r=>{
+            if(!nodes.get(r.id)) mountBox(r.id, r.name, 2);
+            addEdge(TEAM_ROOT_ID, r.id);
+          });
+          // Re-cablear bajo líder si existe
+          rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
+          expandedRoot.add(TEAM_ROOT_ID);
+          stabilizeAndFit(120);
         }
-        const role = orgBefore.roles.find(r=>r.id===id);
-        if(role){ togglePerson(role); return; }
-      }else{
-        if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }); return; }
+        return;
+      }
 
-        if(LEADER_NODE_ID && id === LEADER_NODE_ID){
-          if(expandedRoot.has(teamRoot)) removeRoles(teamRoot, orgAfter.roles);
-          else { addRoles(teamRoot, orgAfter.roles); rewireUnderLeaderIfAny(teamRoot, orgAfter.roles); }
-          return;
-        }
-
-        if(id===teamRoot){
-          expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgAfter.roles)
-                                     : (addRoles(teamRoot, orgAfter.roles), rewireUnderLeaderIfAny(teamRoot, orgAfter.roles));
-          return;
-        }
-        const role = orgAfter.roles.find(r=>r.id===id);
-        if(role){
-          togglePerson(role);
-          toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
-          return;
-        }
+      // clic en rol dentro del equipo
+      const role = (data.roles||[]).find(r=>r.id===id);
+      if(role){
+        // Persona del rol: nivel 3
+        togglePersonNode(role.id, role.person, 3, !!role.planta);
+        // Subroles (nivel 4) y personas de subrol (nivel 5)
+        const arr = data.subroles?.[role.id];
+        if(arr && arr.length) toggleSubroles(role.id, arr, 2);
+        stabilizeAndFit(120);
       }
     });
 
-    // selector & botones
+    /****************** SELECTOR Y BOTONES ******************/
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = currentKey;
     sel.addEventListener("change", e=>loadTeam(e.target.value));
 
-    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAPBefore(); else mountTeamBefore(); };
-    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAPAfter();  else mountTeamAfter();  };
+    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
+    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
-    // arranque
+    /****************** INICIO ******************/
     loadTeam(currentKey);
   </script>
 </body>
