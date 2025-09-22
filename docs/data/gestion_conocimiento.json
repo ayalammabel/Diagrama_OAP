@@ -1,21 +1,27 @@
 {
-  "meta": { "equipo": "Gestión del Conocimiento", "titulo": "" },
+  "meta": {
+    "equipo": "Gestión del Conocimiento",
+    "titulo": "",
+    "leaderId": "A_LIDER"
+  },
+
   "before": {
     "label": "Gestión del Conocimiento (3 roles) – ANTES",
     "roles": [
-      { "id": "B_LIDER",  "name": "Líder",        "person": "Catalina Sánchez" },
-      { "id": "B_ARTIC",  "name": "Articuladora", "person": "Angela Andrea Barón" },
-      { "id": "B_INFOG",  "name": "Inf. Geográfica", "person": "Mabel Ayala Meneses" }
+      { "id": "B_LIDER", "name": "Líder", "person": "Catalina Sánchez" },
+      { "id": "B_ARTIC", "name": "Articuladora", "person": "Angela Andrea Barón" },
+      { "id": "B_INFOG", "name": "Inf. Geográfica", "person": "Mabel Ayala Meneses" }
     ]
   },
+
   "after": {
-    "label": "Gestión del Conocimiento (4 roles) – DESPUÉS",
+    "label": "Gestión del Conocimiento – DESPUÉS",
     "roles": [
-      { "id": "A_LIDER",   "name": "Líder",                                   "person": "Catalina Sánchez" },
-      { "id": "A_TRANSV",  "name": "Rol transversal (interequipos)",          "person": "Catalina Sánchez" },
-      { "id": "A_REQS",    "name": "Analista (Levantamiento de Requerimientos)", "person": "Angela Andrea Barón" },
-      { "id": "A_GEO",     "name": "Analista de Datos (Enfoque Geográfico)",  "person": "Mabel Ayala Meneses" }
+      { "id": "A_LIDER", "name": "Líder", "person": "Catalina Sánchez" },
+      { "id": "A_REQS", "name": "Analista (Levantamiento de Requerimientos)", "person": "Angela Andrea Barón" },
+      { "id": "A_GEO", "name": "Analista de Datos (Enfoque Geográfico)", "person": "Mabel Ayala Meneses" }
     ],
     "subroles": {}
   }
 }
+
