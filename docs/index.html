@@ -27,7 +27,8 @@
       <button id="btnDespues">Ver DESPUÉS</button>
     </div>
     <div class="hint">
-      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles, si existen).
+      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona. <br/>
+      En <b>OAP</b>, clic en un equipo abre su subdiagrama.
     </div>
   </header>
 
@@ -35,10 +36,16 @@
 
   <script>
     /* ========= PARÁMETROS ========= */
-    // Por ahora solo TI. Más adelante puedes agregar más claves aquí y sus JSON en /docs/data/.
-    const TEAMS = ["ti"];
-    const TEAM_LABELS = { ti: "TI" };
-    let currentKey = "ti";
+    const TEAMS = ["oap", "4p", "gestion_conocimiento", "administrativo", "ti", "mipg"];
+    const TEAM_LABELS = {
+      oap: "OAP General",
+      "4p": "4P",
+      gestion_conocimiento: "Gestión del Conocimiento",
+      administrativo: "Administrativo",
+      ti: "TI",
+      mipg: "MIPG"
+    };
+    let currentKey = "oap"; // arranca en el organigrama base
 
     /* ========= ESTADO ========= */
     let orgBefore = null;   // { id, label, roles: [...] }
@@ -100,8 +107,7 @@
         try{nodes.remove(pid); edges.remove(`${role.id}-${pid}`);}catch{}
         openedPersons.delete(pid);
       } else {
-        const label = role.person.trim();
-        const nodeOptions = { id: pid, label, shape: "box", font: { italics: true } };
+        const nodeOptions = { id: pid, label: role.person.trim(), shape: "box", font: { italics: true } };
         if (role.planta) nodeOptions.color = { background: "#e9e0ff", border: "#7a5cff" };
         nodes.add(nodeOptions);
         edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
@@ -143,10 +149,8 @@
       updateButtons();
     }
     function updateButtons(){
-      const btnAntes = document.getElementById("btnAntes");
-      const btnDesp = document.getElementById("btnDespues");
-      btnAntes.textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
-      btnDesp.textContent   = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
+      document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
+      document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
     }
 
     /* ========= CARGA DE EQUIPO (JSON) ========= */
@@ -154,7 +158,7 @@
       try{
         const res = await fetch(`data/${key}.json`);
         const data = await res.json();
-        const prefix = key.toUpperCase(); // para evitar colisiones de IDs si luego hay más equipos
+        const prefix = key.toUpperCase(); // prefijo para evitar colisiones
 
         orgBefore = {
           id: `ROOT_BEFORE_${prefix}`,
@@ -163,7 +167,8 @@
             id: `${prefix}_${r.id}`,
             name: r.name,
             person: r.person || "",
-            planta: !!r.planta
+            planta: !!r.planta,
+            route: r.route || ""
           }))
         };
 
@@ -174,7 +179,8 @@
               id: `${prefix}_${sr.id}`,
               name: sr.name,
               person: sr.person || "",
-              planta: !!sr.planta
+              planta: !!sr.planta,
+              route: sr.route || ""
             }));
           }
         }
@@ -186,18 +192,19 @@
             id: `${prefix}_${r.id}`,
             name: r.name,
             person: r.person || "",
-            planta: !!r.planta
+            planta: !!r.planta,
+            route: r.route || ""
           })),
           subroles: sub
         };
 
-        // Título visible
         const nice = TEAM_LABELS[key] || (data.meta?.equipo || key);
         document.getElementById("title").textContent =
           `Organigrama – ${nice}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
 
-        // Vista por defecto
         MODE = "DESPUES";
+        currentKey = key;
+        document.getElementById("teamSelect").value = key;
         mountAfter();
       }catch(err){
         console.error(err);
@@ -213,33 +220,41 @@
       if(MODE==="ANTES"){
         if(id===orgBefore.id) return toggleRoot(orgBefore, orgBefore.roles);
         const role = orgBefore.roles.find(r=>r.id===id);
-        if(role) return togglePerson(role);
+        if(!role) return;
+
+        // Si estamos en OAP y el rol tiene route, navegar al subdiagrama
+        if (currentKey === "oap" && role.route) return loadTeam(role.route);
+
+        // Si no, comportamiento normal
+        return togglePerson(role);
       } else {
         if(id===orgAfter.id) return toggleRoot(orgAfter, orgAfter.roles);
         const role = orgAfter.roles.find(r=>r.id===id);
-        if(role){
-          togglePerson(role);
-          toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
-        }
+        if(!role) return;
+
+        // Navegación desde OAP (DESPUÉS)
+        if (currentKey === "oap" && role.route) return loadTeam(role.route);
+
+        // Comportamiento normal
+        togglePerson(role);
+        toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
       }
     });
 
-    // Selector (solo TI por ahora)
+    // Selector
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k => `<option value="${k}">${TEAM_LABELS[k] || k.toUpperCase()}</option>`).join("");
     sel.value = currentKey;
-    sel.addEventListener("change", e => {
-      currentKey = e.target.value;
-      loadTeam(currentKey);
-    });
+    sel.addEventListener("change", e => loadTeam(e.target.value));
 
     // Botones
     document.getElementById("btnAntes").onclick   = ()=>{ MODE="ANTES"; mountBefore(); };
     document.getElementById("btnDespues").onclick = ()=>{ MODE="DESPUES"; mountAfter(); };
 
-    // Inicial
+    // Inicial: OAP base
     loadTeam(currentKey);
   </script>
 </body>
 </html>
+
 
