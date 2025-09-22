@@ -1,0 +1,26 @@
+{
+  "meta": { "equipo": "OAP General", "titulo": "Organización general OAP" },
+
+  "before": {
+    "label": "Jefa OAP – Paola Rojas (ANTES)",
+    "roles": [
+      { "id": "B_4P",   "name": "4P (6)",                       "person": "" },
+      { "id": "B_GC",   "name": "Gestión del Conocimiento (3)", "person": "" },
+      { "id": "B_ADM",  "name": "Administrativo (8)",           "person": "" },
+      { "id": "B_TI",   "name": "TI",                           "person": "" },
+      { "id": "B_MIPG", "name": "MIPG (8)",                     "person": "" }
+    ]
+  },
+
+  "after": {
+    "label": "Jefa OAP – Paola Rojas (DESPUÉS)",
+    "roles": [
+      { "id": "A_4P",   "name": "4P (8)",                       "person": "" },
+      { "id": "A_GC",   "name": "Gestión del Conocimiento (4)", "person": "" },
+      { "id": "A_ADM",  "name": "Administrativo (6)",           "person": "" },
+      { "id": "A_TI",   "name": "TI",                           "person": "" },
+      { "id": "A_MIPG", "name": "MIPG (6)",                     "person": "" }
+    ],
+    "subroles": {}
+  }
+}
