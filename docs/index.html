@@ -72,11 +72,11 @@
     const container = document.getElementById("network");
 
     const EDGE_COLOR = '#cbd5e1';
-    const options = {
+    let options = {
       layout: { hierarchical: {
         enabled:true,
         direction:"UD",
-        levelSeparation:110,     // vertical (moderado)
+        levelSeparation:110,     // vertical
         nodeSpacing: 140,        // base; luego peinamos a mano
         parentCentralization:true,
         blockShifting:true,
@@ -120,6 +120,15 @@
     function unlockAllPositions(){
       const all = nodes.get();
       nodes.update(all.map(n => ({ id:n.id, fixed:false })));
+    }
+    function enableHierarchical(){
+      network.setOptions({
+        layout:{ hierarchical:{
+          enabled:true, direction:"UD", levelSeparation:110, nodeSpacing:140,
+          parentCentralization:true, blockShifting:true, edgeMinimization:true, sortMethod:"hubsize"
+        }},
+        physics:false
+      });
     }
 
     function clearAll(){
@@ -186,10 +195,11 @@
         arr.forEach(sr=>{
           if(isNoiseLabel(sr.name)) return; // ignora "(ver analistas)" etc.
           if(isPersonLike(sr)){
-            const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "(por definir)";
+            const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
             const pid = `${sr.id}_P`;
             if(!nodes.get(pid)) nodes.add({ id:pid, label, shape:"box", level, font:{ italics:true } });
             if(!edges.get(`${roleId}-${pid}`)) edges.add({ id:`${roleId}-${pid}`, from:roleId, to:pid });
+            openedPersons.add(pid);
           }else{
             if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", level });
             if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
@@ -230,24 +240,16 @@
 
     /********** ESPACIADO HORIZONTAL **********/
     function childrenOf(parentId){
-      return edges.get({
-        filter: e => e.from === parentId
-      }).map(e => e.to);
+      return edges.get({ filter: e => e.from === parentId }).map(e => e.to);
     }
-
     function spreadChildren(parentId, gap = MIN_GAP){
-      // hijos visibles del padre
       const kids = childrenOf(parentId).filter(id => !!nodes.get(id));
       if(kids.length < 2) return;
 
-      // x del padre y de los hijos actuales
       const p = network.getPositions([parentId])[parentId];
       const posKids = network.getPositions(kids);
-
-      // orden actual por x
       kids.sort((a,b) => posKids[a].x - posKids[b].x);
 
-      // centramos bajo el padre
       const total = (kids.length - 1) * gap;
       let startX = p.x - total / 2;
 
@@ -258,23 +260,37 @@
       });
       nodes.update(updates);
     }
-
     function spreadTop(){
-      // raíz visible cuyos hijos queremos espaciar
-      const root = (currentKey === "oap") ? (MODE==="ANTES" ? orgBefore.id : orgAfter.id)
-                                          : TEAM_ROOT_ID;
+      const root = (currentKey === "oap") ? (MODE==="ANTES" ? orgBefore.id : orgAfter.id) : TEAM_ROOT_ID;
       if (root) spreadChildren(root);
-
-      // además, espaciar cada rol con subroles y/o personas abiertos
       openedSubroles.forEach(rid => spreadChildren(rid));
-      // y cada rol al que se le haya abierto al menos una persona
-      // (padre = id antes de sufijo "_P")
       const parents = new Set();
       openedPersons.forEach(pid => {
         const parent = pid.replace(/_P$/, '');
         if (nodes.get(parent)) parents.add(parent);
       });
       parents.forEach(rid => spreadChildren(rid));
+    }
+    function freezeAndSpread(){
+      const all = nodes.get();
+      // Descongelamos Y para que respete los niveles jerárquicos
+      nodes.update(all.map(n => ({ id:n.id, fixed:{ x:false, y:false } })));
+      // Espaciamos niveles visibles
+      spreadTop();
+      // Congelamos X para que no se junten al pasar el mouse
+      const all2 = nodes.get();
+      nodes.update(all2.map(n => ({ id:n.id, fixed:{ x:true, y:false } })));
+    }
+
+    /********** Auto-abrir todos los niveles en equipos **********/
+    function openAllTeamLevels(data){
+      // persona directa del rol de equipo (si existiera)
+      (data.roles || []).forEach(r => {
+        if (r.person && r.person.trim()) togglePerson(r, LV_CHILD);
+        const arr = data.subroles?.[r.id];
+        if (arr && arr.length) toggleSubroles(r.id, arr, LV_CHILD);
+      });
+      setTimeout(() => { freezeAndSpread(); }, 0);
     }
 
     /********** montajes **********/
@@ -283,6 +299,8 @@
       clearAll(); unlockAllPositions();
       LV_ROOT=0; LV_ROLE=1; LV_CHILD=2;
 
+      enableHierarchical();
+
       const {title, person} = splitTitlePerson(orgBefore.label);
       if(title) JEFA_LABEL = cleanPhase(title);
       if(person) JEFA_PERSON = person;
@@ -290,14 +308,16 @@
       mountRootNode(orgBefore.id, JEFA_LABEL, LV_ROOT);
       addRoles(orgBefore.id, orgBefore.roles, LV_ROLE);
       updateCountsUI();
-      network.fit({animation:{duration:200}});
-      setTimeout(spreadTop, 0);
+      network.fit({animation:{duration:150}});
+      setTimeout(freezeAndSpread, 0);
       enrichCountsForOAP(orgAfter.roles);
     }
     function mountOAPAfter(){
       MODE="DESPUES"; applyTheme();
       clearAll(); unlockAllPositions();
       LV_ROOT=0; LV_ROLE=1; LV_CHILD=2;
+
+      enableHierarchical();
 
       const {title, person} = splitTitlePerson(orgAfter.label);
       if(title) JEFA_LABEL = cleanPhase(title);
@@ -306,8 +326,8 @@
       mountRootNode(orgAfter.id, JEFA_LABEL, LV_ROOT);
       addRoles(orgAfter.id, orgAfter.roles, LV_ROLE);
       updateCountsUI();
-      network.fit({animation:{duration:200}});
-      setTimeout(spreadTop, 0);
+      network.fit({animation:{duration:150}});
+      setTimeout(freezeAndSpread, 0);
       enrichCountsForOAP(orgAfter.roles);
     }
 
@@ -316,6 +336,8 @@
       clearAll(); unlockAllPositions();
       LV_ROOT=0; const TEAM_LEVEL=1; LV_ROLE=2; LV_CHILD=3;
 
+      enableHierarchical();
+
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountRootNode(STICKY_ID, JEFA_LABEL, LV_ROOT);
       nodes.add({ id:TEAM_ROOT_ID, label:cleanPhase(orgBefore.label), level:TEAM_LEVEL, shape:"box" });
@@ -323,14 +345,20 @@
 
       addRoles(TEAM_ROOT_ID, orgBefore.roles, LV_ROLE);
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgBefore.roles);
+
+      // 👉 abre equipos → roles → personas (si existen)
+      openAllTeamLevels(orgBefore);
+
       updateCountsUI();
-      network.fit({animation:{duration:200}});
-      setTimeout(spreadTop, 0);
+      network.fit({animation:{duration:150}});
+      setTimeout(freezeAndSpread, 0);
     }
     function mountTeamAfter(){
       MODE="DESPUES"; applyTheme();
       clearAll(); unlockAllPositions();
       LV_ROOT=0; const TEAM_LEVEL=1; LV_ROLE=2; LV_CHILD=3;
+
+      enableHierarchical();
 
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountRootNode(STICKY_ID, JEFA_LABEL, LV_ROOT);
@@ -339,9 +367,13 @@
 
       addRoles(TEAM_ROOT_ID, orgAfter.roles, LV_ROLE);
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgAfter.roles);
+
+      // 👉 abre equipos → roles → personas (si existen)
+      openAllTeamLevels(orgAfter);
+
       updateCountsUI();
-      network.fit({animation:{duration:200}});
-      setTimeout(spreadTop, 0);
+      network.fit({animation:{duration:150}});
+      setTimeout(freezeAndSpread, 0);
     }
 
     function updateCountsUI(){
@@ -378,10 +410,19 @@
           id:`${prefix}_${r.id}`, name:r.name, person:r.person||"", planta:!!r.planta, route:r.route||""
         }));
 
-        const sub = {};
+        // subroles mapeados con prefijo
+        const subBefore = {};
+        if (data.before.subroles){
+          for (const roleId in data.before.subroles){
+            subBefore[`${prefix}_${roleId}`] = data.before.subroles[roleId].map(sr => ({
+              id:`${prefix}_${sr.id}`, name:sr.name, person:sr.person||"", planta:!!sr.planta, route:sr.route||""
+            }));
+          }
+        }
+        const subAfter = {};
         if (data.after.subroles){
           for (const roleId in data.after.subroles){
-            sub[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr => ({
+            subAfter[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr => ({
               id:`${prefix}_${sr.id}`, name:sr.name, person:sr.person||"", planta:!!sr.planta, route:sr.route||""
             }));
           }
@@ -391,8 +432,8 @@
         LEADER_NODE_ID = null;
         if(data.meta?.leaderId) LEADER_NODE_ID = `${prefix}_${data.meta.leaderId}`;
 
-        orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles:beforeRoles };
-        orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles:afterRoles, subroles:sub };
+        orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles:beforeRoles, subroles:subBefore };
+        orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles:afterRoles, subroles:subAfter };
 
         if(key==="oap"){
           const {title, person} = splitTitlePerson(orgAfter.label);
@@ -424,19 +465,19 @@
           if(id===orgBefore.id){
             expandedRoot.has(orgBefore.id) ? removeRoles(orgBefore.id, orgBefore.roles)
                                             : addRoles(orgBefore.id, orgBefore.roles, LV_ROLE);
-            setTimeout(spreadTop, 0);
+            setTimeout(freezeAndSpread, 0);
             return;
           }
           const role = orgBefore.roles.find(r=>r.id===id);
           if(!role) return;
           if(role.route) return loadTeam(role.route);
-          togglePerson(role, LV_CHILD+0);
-          setTimeout(() => { spreadChildren(role.id); }, 0);
+          togglePerson(role, LV_CHILD);
+          setTimeout(freezeAndSpread, 0);
         }else{
           if(id===orgAfter.id){
             expandedRoot.has(orgAfter.id) ? removeRoles(orgAfter.id, orgAfter.roles)
                                            : addRoles(orgAfter.id, orgAfter.roles, LV_ROLE);
-            setTimeout(spreadTop, 0);
+            setTimeout(freezeAndSpread, 0);
             return;
           }
           const role = orgAfter.roles.find(r=>r.id===id);
@@ -444,7 +485,7 @@
           if(role.route) return loadTeam(role.route);
           togglePerson(role, LV_CHILD);
           toggleSubroles(role.id, orgAfter.subroles?.[role.id], LV_CHILD);
-          setTimeout(() => { spreadChildren(role.id); spreadTop(); }, 0);
+          setTimeout(freezeAndSpread, 0);
         }
         return;
       }
@@ -454,25 +495,32 @@
       if(MODE==="ANTES"){
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
+        // Clic en LÍDER abre/cierra igual que el nodo del equipo
         if(LEADER_NODE_ID && id === LEADER_NODE_ID){
           if(expandedRoot.has(teamRoot)){
             removeRoles(teamRoot, orgBefore.roles);
           }else{
             addRoles(teamRoot, orgBefore.roles, LV_ROLE);
             rewireUnderLeaderIfAny(teamRoot, orgBefore.roles);
+            openAllTeamLevels(orgBefore);
           }
-          setTimeout(spreadTop, 0);
+          setTimeout(freezeAndSpread, 0);
           return;
         }
 
         if(id===teamRoot){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgBefore.roles)
-                                     : (addRoles(teamRoot, orgBefore.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgBefore.roles));
-          setTimeout(spreadTop, 0);
+                                     : (addRoles(teamRoot, orgBefore.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgBefore.roles), openAllTeamLevels(orgBefore));
+          setTimeout(freezeAndSpread, 0);
           return;
         }
         const role = orgBefore.roles.find(r=>r.id===id);
-        if(role){ togglePerson(role, LV_CHILD); setTimeout(()=>{ spreadChildren(role.id); spreadTop(); },0); return; }
+        if(role){
+          togglePerson(role, LV_CHILD);
+          toggleSubroles(role.id, orgBefore.subroles?.[role.id], LV_CHILD);
+          setTimeout(freezeAndSpread, 0);
+          return;
+        }
       }else{
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
@@ -482,22 +530,23 @@
           }else{
             addRoles(teamRoot, orgAfter.roles, LV_ROLE);
             rewireUnderLeaderIfAny(teamRoot, orgAfter.roles);
+            openAllTeamLevels(orgAfter);
           }
-          setTimeout(spreadTop, 0);
+          setTimeout(freezeAndSpread, 0);
           return;
         }
 
         if(id===teamRoot){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgAfter.roles)
-                                     : (addRoles(teamRoot, orgAfter.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgAfter.roles));
-          setTimeout(spreadTop, 0);
+                                     : (addRoles(teamRoot, orgAfter.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgAfter.roles), openAllTeamLevels(orgAfter));
+          setTimeout(freezeAndSpread, 0);
           return;
         }
         const role = orgAfter.roles.find(r=>r.id===id);
         if(role){
           togglePerson(role, LV_CHILD);
           toggleSubroles(role.id, orgAfter.subroles?.[role.id], LV_CHILD);
-          setTimeout(()=>{ spreadChildren(role.id); spreadTop(); },0);
+          setTimeout(freezeAndSpread, 0);
           return;
         }
       }
@@ -517,7 +566,5 @@
   </script>
 </body>
 </html>
-
-
 
 
