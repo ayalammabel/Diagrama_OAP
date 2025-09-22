@@ -45,7 +45,7 @@
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
     let currentKey = "oap";
 
-    // niveles
+    // niveles (se reajustan si hay sticky root)
     let LV_ROOT = 0, LV_ROLE = 1, LV_CHILD = 2;
 
     let orgBefore = null, orgAfter = null;
@@ -53,24 +53,15 @@
 
     // info jefa
     let JEFA_LABEL = "Jefa OAP";
-    let JEFA_PERSON = "";
+    let JEFA_PERSON = ""; // ej. "Paola Rojas"
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
 
     // líder detectado/forzado por JSON
     let LEADER_NODE_ID = null;
 
-    // cache-buster
+    // cache-buster para evitar JSON en caché
     const BUST = () => `v=${Date.now()}`;
-
-    // ---- Parámetros de espaciado: énfasis en HORIZONTAL ----
-    const SPACING = {
-      baseNode: 340,     // separación horizontal base (más grande)
-      perNode:   28,     // refuerzo por cantidad de nodos en la “fila”
-      perSub:    90,     // refuerzo por sub-roles del bloque más grande abierto
-      baseLevel: 130,    // separación vertical base (moderada)
-      extraVert: 30      // extra vertical cuando hay subroles/personas
-    };
 
     /********** vis-network **********/
     const nodes = new vis.DataSet();
@@ -78,21 +69,27 @@
     const container = document.getElementById("network");
 
     const EDGE_COLOR = '#cbd5e1';
-    const options = {
-      layout: { hierarchical: {
-        enabled:true, direction:"UD",
-        levelSeparation:SPACING.baseLevel,
-        nodeSpacing:SPACING.baseNode,
-        treeSpacing:SPACING.baseNode * 0.6,   // colchón adicional H
+    const baseLayout = {
+      hierarchical: {
+        enabled:true,
+        direction:"UD",
+        levelSeparation:120,   // control de altura
+        nodeSpacing:180,       // se recalcula dinámicamente en equipos
         parentCentralization:true,
-        blockShifting:false,                   // ❗ no “apretar” bloques
-        edgeMinimization:false,                // ❗ evita que junte para optimizar líneas
-        sortMethod:"hubsize"
-      }},
+        blockShifting:true,
+        edgeMinimization:true,
+        sortMethod:"hubsize",
+      }
+    };
+
+    const options = {
+      layout: baseLayout,
       physics:false,
       nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
+      // ortogonales
       edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } },
-      interaction:{ hover:true, selectable:true }
+      // hover desactivado para evitar micro-movimientos
+      interaction:{ hover:false, selectable:true }
     };
     const network = new vis.Network(container, { nodes, edges }, options);
 
@@ -130,14 +127,43 @@
       nodes.add({ id, label, level, shape:"box", color:{ background:"#fff", border:accent() }, borderWidth:2 });
     }
 
+    // —— spacing dinámico sólo para equipos ——
+    function computeMaxBreadth(dataRoles, subMap){
+      let maxKids = dataRoles?.length || 0; // hijos directos del líder
+      if(subMap){
+        for(const k in subMap){
+          if(Array.isArray(subMap[k])) maxKids = Math.max(maxKids, subMap[k].length);
+        }
+      }
+      return maxKids;
+    }
+    function setDynamicNodeSpacing(maxKids){
+      // base 180 + 35px por cada hijo extra a partir de 4; tope 500
+      const base = 180;
+      const extra = Math.max(0, maxKids - 4) * 35;
+      const spacing = Math.min(base + extra, 500);
+      network.setOptions({ layout: { hierarchical: { nodeSpacing: spacing } } });
+    }
+    function resetNodeSpacing(){
+      network.setOptions({ layout: { hierarchical: { nodeSpacing: 180 } } });
+    }
+
+    // —— añadir / quitar roles ——
     function addRoles(parentId, roles, childLevel){
+      const isTeamContext = currentKey !== "oap";
       roles.forEach(r=>{
-        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, level:childLevel, shape:"box" });
+        if(!nodes.get(r.id)){
+          const baseNode = { id:r.id, label:r.name, level:childLevel, shape:"box" };
+          // ensancha SOLO roles bajo líder en equipos
+          if(isTeamContext && childLevel === LV_ROLE){
+            baseNode.widthConstraint = { minimum: 180 };
+          }
+          nodes.add(baseNode);
+        }
         const eid = `${parentId}-${r.id}`;
         if(!edges.get(eid)) edges.add({ id:eid, from:parentId, to:r.id });
       });
       expandedRoot.add(parentId);
-      scheduleReflow();
     }
     function removeRoles(parentId, roles){
       roles.forEach(r=>{
@@ -148,113 +174,83 @@
         try{ nodes.remove(r.id);}catch{}
       });
       expandedRoot.delete(parentId);
-      scheduleReflow();
     }
 
-    // PERSONAS
+    // —— PERSONAS (click) —— (👇 un nivel MÁS profundo)
     function togglePerson(role, parentLevel){
-      if (!role.person || !role.person.trim()) return;
+      if (!role.person || !role.person.trim()) return; // si no hay persona, no muestres nada
       const pid = `${role.id}_P`;
       const level = (parentLevel ?? LV_CHILD) + 1;
       if(openedPersons.has(pid)){
         try{nodes.remove(pid);}catch{}; try{edges.remove(`${role.id}-${pid}`);}catch{}; openedPersons.delete(pid);
       }else{
-        const node = { id:pid, label:role.person.trim(), shape:"box", level, font:{ italics:true } };
+        const node = {
+          id:pid, label:role.person.trim(), shape:"box", level,
+          font:{ italics:true },
+          // Ensancha personas sólo en equipos
+          widthConstraint: (currentKey!=="oap") ? { minimum: 130 } : undefined
+        };
         if(role.planta) node.color = { background:"#efe9ff", border:"#7a5cff" };
         nodes.add(node);
         edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
         openedPersons.add(pid);
       }
-      scheduleReflow();
     }
 
-    // SUBROLES (sub-rol y debajo la persona / “Nuevo perfil”)
-    function toggleSubroles(parentRoleId, arr, parentLevel){
+    // heurísticas para ignorar rótulos de ayuda
+    const isNoiseLabel = (s="") => /^\s*\(.*\)\s*$/.test(s) || /ver\s+analistas|varios\s+apoyos?/i.test(s);
+    const isPersonLike = (sr) => (sr?.person && sr.person.trim()) || /nuevo\s+perfil|perfil\s+nuevo/i.test(sr?.name||"");
+
+    // —— SUBROLES —— (👇 SIEMPRE nivel +1 respecto al rol)
+    function toggleSubroles(roleId, arr, parentLevel){
       if(!arr || !arr.length) return;
-
-      if(openedSubroles.has(parentRoleId)){
+      if(openedSubroles.has(roleId)){
         arr.forEach(sr=>{
-          const rid = sr.id, pid = `${rid}_P`;
-          try{ edges.remove(`${parentRoleId}-${rid}`);}catch{}
-          try{ nodes.remove(rid);}catch{}
-          try{ edges.remove(`${rid}-${pid}`);}catch{}
-          try{ nodes.remove(pid);}catch{}
+          const rid = sr.id;
+          const pid = `${rid}_P`;
+          try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
+          try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
         });
-        openedSubroles.delete(parentRoleId);
-        scheduleReflow();
-        return;
+        openedSubroles.delete(roleId);
+      }else{
+        const level = (parentLevel ?? LV_CHILD) + 1;
+        arr.forEach(sr=>{
+          if(isNoiseLabel(sr.name)) return; // ignora "(ver analistas)" etc.
+          if(isPersonLike(sr)){
+            const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "(por definir)";
+            const pid = `${sr.id}_P`;
+            if(!nodes.get(pid)){
+              nodes.add({
+                id:pid, label, shape:"box", level, font:{ italics:true },
+                widthConstraint: (currentKey!=="oap") ? { minimum:130 } : undefined
+              });
+            }
+            if(!edges.get(`${roleId}-${pid}`)) edges.add({ id:`${roleId}-${pid}`, from:roleId, to:pid });
+          }else{
+            if(!nodes.get(sr.id)){
+              nodes.add({
+                id:sr.id, label:sr.name, shape:"box", level,
+                widthConstraint: (currentKey!=="oap") ? { minimum:160 } : undefined
+              });
+            }
+            if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+          }
+        });
+        openedSubroles.add(roleId);
       }
-
-      const levelRole   = (parentLevel ?? LV_CHILD) + 1;
-      const levelPerson = levelRole + 1;
-
-      arr.forEach(sr=>{
-        if(!nodes.get(sr.id))
-          nodes.add({ id: sr.id, label: sr.name, shape:"box", level: levelRole });
-        if(!edges.get(`${parentRoleId}-${sr.id}`))
-          edges.add({ id: `${parentRoleId}-${sr.id}`, from: parentRoleId, to: sr.id });
-
-        const labelP = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
-        const pid = `${sr.id}_P`;
-        if(!nodes.get(pid)){
-          const nodeP = { id: pid, label: labelP, shape:"box", level: levelPerson, font:{ italics:true } };
-          if(sr.planta) nodeP.color = { background:"#efe9ff", border:"#7a5cff" };
-          nodes.add(nodeP);
-        }
-        if(!edges.get(`${sr.id}-${pid}`))
-          edges.add({ id: `${sr.id}-${pid}`, from: sr.id, to: pid });
-      });
-
-      openedSubroles.add(parentRoleId);
-      scheduleReflow();
     }
-    function closeSubroles(parentRoleId){
-      const arr = orgAfter?.subroles?.[parentRoleId];
-      if(!arr || !openedSubroles.has(parentRoleId)) return;
+    function closeSubroles(roleId){
+      const arr = orgAfter?.subroles?.[roleId];
+      if(!arr || !openedSubroles.has(roleId)) return;
       arr.forEach(sr=>{
         const rid = sr.id, pid = `${rid}_P`;
-        try{ edges.remove(`${parentRoleId}-${rid}`);}catch{}
-        try{ nodes.remove(rid);}catch{}
-        try{ edges.remove(`${rid}-${pid}`);}catch{}
-        try{ nodes.remove(pid);}catch{}
+        try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
+        try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
       });
-      openedSubroles.delete(parentRoleId);
-      scheduleReflow();
+      openedSubroles.delete(roleId);
     }
 
-    // —— Espaciado: énfasis horizontal —— 
-    function scheduleReflow(){
-      const nL2 = nodes.get({ filter:n=>n.level===LV_ROLE }).length;
-      const nL3 = nodes.get({ filter:n=>n.level===LV_CHILD }).length;
-      const nL4 = nodes.get({ filter:n=>n.level===LV_CHILD+1 }).length;
-
-      let maxSubrolesOpen = 0;
-      openedSubroles.forEach(roleId=>{
-        const len = orgAfter?.subroles?.[roleId]?.length || 0;
-        if(len > maxSubrolesOpen) maxSubrolesOpen = len;
-      });
-
-      // Valor grande para nodeSpacing (horizontal)
-      const maxRow = Math.max(3, nL2, nL3, Math.ceil(nL4 * 0.75));
-      const nodeSpacing =
-        SPACING.baseNode +
-        SPACING.perNode * maxRow +
-        SPACING.perSub  * maxSubrolesOpen;
-
-      // Vertical moderada
-      const levelSeparation =
-        SPACING.baseLevel +
-        ((openedSubroles.size || openedPersons.size) ? SPACING.extraVert : 0);
-
-      const treeSpacing = Math.max( SPACING.baseNode * 0.6, nodeSpacing * 0.5 );
-
-      network.setOptions({
-        layout:{ hierarchical:{ nodeSpacing, levelSeparation, treeSpacing, blockShifting:false, edgeMinimization:false } }
-      });
-      network.redraw();
-    }
-
-    // Re-cablear bajo líder
+    // —— re-cablear bajo el LÍDER (si existe) —— (roles cuelgan del líder, subroles NO se tocan)
     function rewireUnderLeaderIfAny(rootId, roles){
       let leaderId = LEADER_NODE_ID;
       if(!leaderId){
@@ -268,17 +264,16 @@
         if(r.id === leaderId) return;
         try{ edges.remove(`${rootId}-${r.id}`); }catch{}
         nodes.update({ id: r.id, level: LV_CHILD });
-        if(!edges.get(`${leaderId}-${r.id}`))
-          edges.add({ id:`${leaderId}-${r.id}`, from: leaderId, to: r.id });
+        const eid = `${leaderId}-${r.id}`;
+        if(!edges.get(eid)) edges.add({ id:eid, from: leaderId, to: r.id });
       });
-
-      scheduleReflow();
     }
 
     /********** montajes **********/
     function mountOAPBefore(){
       MODE="ANTES"; applyTheme();
       clearAll();
+      resetNodeSpacing(); // OAP no necesita spacing dinámico
       LV_ROOT=0; LV_ROLE=1; LV_CHILD=2;
 
       const {title, person} = splitTitlePerson(orgBefore.label);
@@ -290,11 +285,11 @@
       updateCountsUI();
       network.fit({animation:{duration:250}});
       enrichCountsForOAP(orgAfter.roles);
-      scheduleReflow();
     }
     function mountOAPAfter(){
       MODE="DESPUES"; applyTheme();
       clearAll();
+      resetNodeSpacing(); // OAP no necesita spacing dinámico
       LV_ROOT=0; LV_ROLE=1; LV_CHILD=2;
 
       const {title, person} = splitTitlePerson(orgAfter.label);
@@ -306,13 +301,16 @@
       updateCountsUI();
       network.fit({animation:{duration:250}});
       enrichCountsForOAP(orgAfter.roles);
-      scheduleReflow();
     }
 
     function mountTeamBefore(){
       MODE="ANTES"; applyTheme();
       clearAll();
       LV_ROOT=0; const TEAM_LEVEL=1; LV_ROLE=2; LV_CHILD=3;
+
+      // spacing dinámico basado en orgBefore
+      const maxKids = computeMaxBreadth(orgBefore.roles, null); // no hay subroles en ANTES
+      setDynamicNodeSpacing(maxKids);
 
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountRootNode(STICKY_ID, JEFA_LABEL, LV_ROOT);
@@ -323,12 +321,15 @@
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgBefore.roles);
       updateCountsUI();
       network.fit({animation:{duration:250}});
-      scheduleReflow();
     }
     function mountTeamAfter(){
       MODE="DESPUES"; applyTheme();
       clearAll();
       LV_ROOT=0; const TEAM_LEVEL=1; LV_ROLE=2; LV_CHILD=3;
+
+      // spacing dinámico basado en orgAfter (roles + subroles)
+      const maxKids = computeMaxBreadth(orgAfter.roles, orgAfter.subroles);
+      setDynamicNodeSpacing(maxKids);
 
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountRootNode(STICKY_ID, JEFA_LABEL, LV_ROOT);
@@ -339,7 +340,6 @@
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgAfter.roles);
       updateCountsUI();
       network.fit({animation:{duration:250}});
-      scheduleReflow();
     }
 
     function updateCountsUI(){
@@ -427,7 +427,7 @@
           const role = orgBefore.roles.find(r=>r.id===id);
           if(!role) return;
           if(role.route) return loadTeam(role.route);
-          return togglePerson(role, LV_CHILD+0);
+          return togglePerson(role, LV_CHILD+0); // persona un nivel debajo del rol
         }else{
           if(id===orgAfter.id){
             expandedRoot.has(orgAfter.id) ? removeRoles(orgAfter.id, orgAfter.roles)
@@ -437,8 +437,8 @@
           const role = orgAfter.roles.find(r=>r.id===id);
           if(!role) return;
           if(role.route) return loadTeam(role.route);
-          togglePerson(role, LV_CHILD);
-          toggleSubroles(role.id, orgAfter.subroles?.[role.id], LV_CHILD);
+          togglePerson(role, LV_CHILD);              // persona en LV_CHILD+1
+          toggleSubroles(role.id, orgAfter.subroles?.[role.id], LV_CHILD); // subroles en LV_CHILD+1
         }
         return;
       }
@@ -448,6 +448,7 @@
       if(MODE==="ANTES"){
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
+        // clic en LÍDER abre/cierra igual que el nodo del equipo
         if(LEADER_NODE_ID && id === LEADER_NODE_ID){
           if(expandedRoot.has(teamRoot)){
             removeRoles(teamRoot, orgBefore.roles);
@@ -468,6 +469,7 @@
       }else{
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
+        // clic en LÍDER abre/cierra igual que el nodo del equipo
         if(LEADER_NODE_ID && id === LEADER_NODE_ID){
           if(expandedRoot.has(teamRoot)){
             removeRoles(teamRoot, orgAfter.roles);
@@ -485,8 +487,8 @@
         }
         const role = orgAfter.roles.find(r=>r.id===id);
         if(role){
-          togglePerson(role, LV_CHILD);
-          toggleSubroles(role.id, orgAfter.subroles?.[role.id], LV_CHILD);
+          togglePerson(role, LV_CHILD);                          // persona en LV_CHILD+1
+          toggleSubroles(role.id, orgAfter.subroles?.[role.id], LV_CHILD); // subroles en LV_CHILD+1
           return;
         }
       }
@@ -506,4 +508,5 @@
   </script>
 </body>
 </html>
+
 
