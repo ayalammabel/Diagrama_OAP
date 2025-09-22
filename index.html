@@ -3,137 +3,280 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Organigrama OAP – SIMISIONAL</title>
-  <!-- vis-network CDN -->
+  <title>Organigrama 4P – Antes / Después</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin:0; }
-    #network { height: 80vh; border-top: 1px solid #eee; }
-    header { padding: 16px 20px; }
-    .hint { color:#666; font-size: 0.95rem; }
+    :root{
+      --nuevo:#e8f5e9;      /* verde suave */
+      --cambia:#fff8e1;     /* ámbar */
+      --igual:#f5f5f5;      /* gris */
+      --remov:#ffecec;      /* rojo suave (para lista lateral) */
+      --borde:#888;
+    }
+    body{font-family:system-ui,Arial,sans-serif;margin:0}
+    header{padding:16px 20px;border-bottom:1px solid #eee}
+    h1{font-size:1.25rem;margin:0 0 6px}
+    .hint{color:#555}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .toolbar button{padding:8px 10px;border:1px solid #ddd;background:#fafafa;cursor:pointer;border-radius:8px}
+    .wrap{display:grid;grid-template-columns:1fr 320px;gap:8px}
+    #network{height:75vh;border-top:1px solid #eee}
+    aside{border-left:1px solid #eee;padding:10px 14px}
+    .legend{display:flex;gap:12px;align-items:center;margin-top:10px}
+    .dot{display:inline-block;width:14px;height:14px;border:1px solid #ccc;border-radius:4px;margin-right:6px}
+    .nuevo{background:var(--nuevo)} .cambia{background:var(--cambia)}
+    .igual{background:var(--igual)} .remov{background:var(--remov)}
+    ul{margin:6px 0 0 18px}
+    .pill{display:inline-block;padding:.05rem .5rem;border:1px solid #ddd;border-radius:999px;background:#fff;margin-left:.4rem;font-size:.75rem;color:#444}
   </style>
 </head>
 <body>
   <header>
-    <h2>Organigrama – Equipo SIMISIONAL</h2>
-    <p class="hint">💡 Clic en <b>SIMISIONAL</b> para desplegar/plegar roles. Clic en un <b>rol</b> para mostrar/ocultar el <b>nombre</b>.</p>
+    <h1>Organigrama – Equipo 4P (Planes, Políticas, Proyectos y Presupuesto)</h1>
+    <div class="hint">Clic en <b>4P</b> para mostrar/ocultar roles. Clic en un <b>rol</b> para ver/ocultar la persona.</div>
+    <div class="toolbar">
+      <button id="btnAntes">Ver ANTES (6)</button>
+      <button id="btnDespues">Ver DESPUÉS (8)</button>
+      <button id="btnDiff">Ver DIFERENCIAS</button>
+      <div class="legend" title="Colores en modo Diferencias">
+        <span><i class="dot nuevo"></i>Nuevo</span>
+        <span><i class="dot cambia"></i>Cambia</span>
+        <span><i class="dot igual"></i>Igual</span>
+      </div>
+    </div>
   </header>
-  <div id="network"></div>
+
+  <div class="wrap">
+    <div id="network"></div>
+    <aside>
+      <h3 style="margin:.3rem 0">Detalles</h3>
+      <div id="side"></div>
+      <h4 style="margin:1rem 0 .3rem">Roles removidos (sólo en “Antes”)</h4>
+      <div id="removed"></div>
+    </aside>
+  </div>
 
   <script>
-    // ---------- 1) Define tu árbol (edítalo aquí) ----------
-    const tree = {
-      id: "A",
-      label: "SIMISIONAL",
-      children: [
-        { id: "B", label: "Analista", person: "Luz Yamile Reyes" },
-        { id: "C", label: "DBA",      person: "Giovanny Benítez" },
-        { id: "D", label: "Frontend", person: "Fabián Acevedo"   },
-        { id: "E", label: "Backend",  person: "Steven Aroca"     }
+    /* ========== 1) DATOS: EDITA SOLO ESTA SECCIÓN ========== */
+    // ANTES (6 roles) — basado en tu cuadro verde
+    const orgBefore = {
+      id: "ROOT_BEFORE",
+      label: "4P (6 roles) – ANTES",
+      roles: [
+        { id:"B_LIDER",    name:"Líder",           person:"Nelly García" },
+        { id:"B_REF1",     name:"Referente",       person:"Yuly Sánchez" },
+        { id:"B_REF2",     name:"Referente",       person:"Liliana Hernandez" },
+        { id:"B_REF3",     name:"Referente",       person:"McAllister Granados" },
+        { id:"B_POLITICA", name:"Políticas Públicas", person:"Andrea Bello" },
+        { id:"B_PRESUP",   name:"Presupuesto",     person:"Michael Gil" }
       ]
     };
 
-    // ---------- 2) DataSets (vis.js) ----------
+    // DESPUÉS (8 roles) — coloca aquí los 8 nombres de rol finales
+    // He prellenado con lo que se ve en tu diagrama nuevo.
+    // Ajusta/renombra/añade hasta llegar a 8.
+    const orgAfter = {
+      id: "ROOT_AFTER",
+      label: "4P (8 roles) – DESPUÉS",
+      roles: [
+        { id:"A_LIDER",    name:"Líder",              person:"Nelly García" },           // igual
+        { id:"A_PROYINV",  name:"Proyectos de Inversión", person:"(ver analistas)" },   // nuevo macro
+        { id:"A_GER8225",  name:"Gerencia proyecto 8225", person:"(varios apoyos)" },   // nuevo macro
+        { id:"A_PRESUP",   name:"Presupuesto",        person:"(nuevo perfil / apoyo)" },// cambia
+        { id:"A_POLITICA", name:"Política Pública",   person:"Andrea Bello" },          // igual (renombrado)
+        { id:"A_REF_YULY", name:"Analista Proyectos (4)", person:"Yuly Sánchez" },      // reasignación
+        { id:"A_ANAL5",    name:"Analista Proyectos (5)", person:"Perfil nuevo" },      // nuevo
+        { id:"A_APOYO",    name:"Apoyo Técnico",      person:"(MC / Diego)" }           // nuevo
+      ],
+      // (Opcional) subroles visibles cuando haces clic en ese rol
+      subroles: {
+        "A_PROYINV": [
+          { id:"SR_PI_1", name:"Analista de Proyectos (5)", person:"Perfil nuevo" },
+          { id:"SR_PI_2", name:"Analista de Proyectos (4)", person:"Nelly García" },
+          { id:"SR_PI_3", name:"Analista de Proyectos (4)", person:"Yuly Sánchez" }
+        ],
+        "A_GER8225": [
+          { id:"SR_GER_1", name:"Líder financiero / Estudio de mercado", person:"(MC)" },
+          { id:"SR_GER_2", name:"Apoyo Técnico", person:"" },
+          { id:"SR_GER_3", name:"Nuevo perfil",  person:"Diego" }
+        ],
+        "A_PRESUP": [
+          { id:"SR_PRE_1", name:"Apoyo técnico", person:"" },
+          { id:"SR_PRE_2", name:"Nuevo perfil",  person:"" }
+        ],
+        "A_POLITICA": [
+          { id:"SR_POL_1", name:"Analista", person:"Andrea Bello" }
+        ]
+      }
+    };
+
+    /* ========== 2) DIFERENCIAS AUTOMÁTICAS (por nombre de rol) ========== */
+    const beforeNames = new Set(orgBefore.roles.map(r => r.name));
+    const afterNames  = new Set(orgAfter.roles.map(r => r.name));
+
+    const removedRoles = [...beforeNames].filter(n => !afterNames.has(n));
+    const newRoles     = [...afterNames].filter(n => !beforeNames.has(n));
+    const commonRoles  = [...afterNames].filter(n => beforeNames.has(n));
+
+    /* ========== 3) VIS: datasets y helpers ========== */
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
 
-    // Estados de expansión
-    const expandedRoles = new Set();   // hijos del root
-    const shownPersons  = new Set();   // nodos "persona" de cada rol
+    const expandedRoot = new Set();
+    const openedPersons = new Set();
+    const openedSubroles = new Set();
 
-    // Agrega solo el root al inicio
-    nodes.add({ id: tree.id, label: tree.label, shape: "box" });
+    const netEl = document.getElementById("network");
+    const sideEl = document.getElementById("side");
+    const removedEl = document.getElementById("removed");
 
-    // Helpers
-    function addRoleNodes() {
-      tree.children.forEach(ch => {
-        if (!nodes.get(ch.id)) nodes.add({ id: ch.id, label: ch.label, shape: "box" });
-        if (!edges.get(`${tree.id}-${ch.id}`)) edges.add({ id:`${tree.id}-${ch.id}`, from: tree.id, to: ch.id });
-      });
-      expandedRoles.add(tree.id);
-    }
-
-    function removeRoleNodes() {
-      // Quita personas visibles primero
-      tree.children.forEach(ch => {
-        const pid = `${ch.id}_p`;
-        if (shownPersons.has(pid)) {
-          try { nodes.remove(pid); } catch(e){}
-          try { edges.remove(`${ch.id}-${pid}`); } catch(e){}
-          shownPersons.delete(pid);
-        }
-      });
-      // Luego quita roles
-      tree.children.forEach(ch => {
-        try { edges.remove(`${tree.id}-${ch.id}`); } catch(e){}
-        try { nodes.remove(ch.id); } catch(e){}
-      });
-      expandedRoles.delete(tree.id);
-    }
-
-    function toggleRoot() {
-      if (expandedRoles.has(tree.id)) removeRoleNodes();
-      else addRoleNodes();
-    }
-
-    function togglePerson(roleId) {
-      const role = tree.children.find(c => c.id === roleId);
-      if (!role) return;
-      const personId = `${roleId}_p`;
-
-      if (shownPersons.has(personId)) {
-        // Oculta persona
-        try { nodes.remove(personId); } catch(e){}
-        try { edges.remove(`${roleId}-${personId}`); } catch(e){}
-        shownPersons.delete(personId);
-      } else {
-        // Muestra persona como un nodo hijo
-        if (!nodes.get(personId)) nodes.add({ id: personId, label: role.person, shape: "box", font: { italics: true } });
-        if (!edges.get(`${roleId}-${personId}`)) edges.add({ id:`${roleId}-${personId}`, from: roleId, to: personId });
-        shownPersons.add(personId);
-      }
-    }
-
-    // ---------- 3) Crea la red ----------
-    const container = document.getElementById("network");
-    const data = { nodes, edges };
     const options = {
-      layout: {
-        hierarchical: {
-          enabled: true,
-          direction: "UD",       // UD = arriba→abajo
-          sortMethod: "directed",
-          levelSeparation: 120,
-          nodeSpacing: 180
-        }
-      },
-      nodes: {
-        shape: "box",
-        margin: 10,
-        borderWidth: 1,
-        color: {
-          background: "#ffffff",
-          border: "#777"
-        }
-      },
-      physics: false,
-      interaction: {
-        hover: true,
-        selectable: true
-      }
+      layout: { hierarchical: { enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180 }},
+      physics:false,
+      nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#777" } },
+      interaction:{ hover:true, selectable:true }
     };
-    const network = new vis.Network(container, data, options);
+    const network = new vis.Network(netEl, { nodes, edges }, options);
 
-    // ---------- 4) Interacciones ----------
-    network.on("click", function (params) {
-      if (!params.nodes.length) return;
-      const id = params.nodes[0];
-      if (id === tree.id) {
-        toggleRoot();               // clic en root → roles
-      } else if (tree.children.some(c => c.id === id)) {
-        togglePerson(id);           // clic en rol → persona
+    let MODE = "ANTES"; // ANTES | DESPUES | DIFF
+
+    function paintRole(roleName) {
+      if (MODE !== "DIFF") return { background:"#fff" };
+      if (newRoles.includes(roleName))    return { background: getComputedStyle(document.documentElement).getPropertyValue('--nuevo') };
+      if (commonRoles.includes(roleName)) return { background: getComputedStyle(document.documentElement).getPropertyValue('--igual') };
+      return { background:"#fff" };
+    }
+
+    function mountRoot(rootId, label) {
+      nodes.add({ id:rootId, label, shape:"box" });
+    }
+
+    function addRoles(rootId, roles) {
+      roles.forEach(r => {
+        const color = paintRole(r.name);
+        if (!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box", color });
+        if (!edges.get(`${rootId}-${r.id}`)) edges.add({ id:`${rootId}-${r.id}`, from:rootId, to:r.id });
+      });
+      expandedRoot.add(rootId);
+    }
+
+    function removeRoles(rootId, roles) {
+      roles.forEach(r => {
+        // cierra persona si estaba abierta
+        const pid = `${r.id}_P`;
+        if (openedPersons.has(pid)) { try{ nodes.remove(pid); edges.remove(`${r.id}-${pid}`);}catch{} openedPersons.delete(pid); }
+        // cierra subroles si estaban abiertos
+        closeSubroles(r.id);
+        try{ edges.remove(`${rootId}-${r.id}`); }catch{}
+        try{ nodes.remove(r.id); }catch{}
+      });
+      expandedRoot.delete(rootId);
+    }
+
+    function toggleRoot(root, roles) {
+      if (expandedRoot.has(root.id)) removeRoles(root.id, roles);
+      else addRoles(root.id, roles);
+    }
+
+    function togglePerson(role) {
+      const pid = `${role.id}_P`;
+      if (openedPersons.has(pid)) {
+        try{ nodes.remove(pid); edges.remove(`${role.id}-${pid}`);}catch{}
+        openedPersons.delete(pid);
+      } else {
+        const label = (role.person && role.person.trim()) ? role.person : "(por definir)";
+        nodes.add({ id:pid, label, shape:"box", font:{ italics:true } });
+        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
+        openedPersons.add(pid);
+      }
+    }
+
+    function toggleSubroles(roleId, arr) {
+      if (!arr || !arr.length) return;
+      if (openedSubroles.has(roleId)) {
+        arr.forEach(sr => { try{ nodes.remove(sr.id); edges.remove(`${roleId}-${sr.id}`);}catch{} });
+        openedSubroles.delete(roleId);
+      } else {
+        arr.forEach(sr => {
+          if (!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", color: paintRole(sr.name) });
+          if (!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+        });
+        openedSubroles.add(roleId);
+      }
+    }
+    function closeSubroles(roleId){
+      const s = orgAfter.subroles?.[roleId];
+      if (!s) return;
+      if (!openedSubroles.has(roleId)) return;
+      s.forEach(sr => { try{ nodes.remove(sr.id); edges.remove(`${roleId}-${sr.id}`);}catch{} });
+      openedSubroles.delete(roleId);
+    }
+
+    function renderRemovedList(){
+      if (MODE !== "DIFF") { removedEl.innerHTML = "<em>No aplica.</em>"; return; }
+      if (!removedRoles.length) { removedEl.innerHTML = "<em>Sin roles removidos.</em>"; return; }
+      removedEl.innerHTML = `<ul>${removedRoles.map(r=>`<li style="background:var(--remov);padding:2px 6px;border:1px solid #f2b4b4;border-radius:6px">${r}</li>`).join("")}</ul>`;
+    }
+
+    function clearAll(){
+      nodes.clear(); edges.clear();
+      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
+      sideEl.innerHTML = ""; renderRemovedList();
+    }
+
+    function mountBefore(){
+      clearAll();
+      mountRoot(orgBefore.id, orgBefore.label);
+      addRoles(orgBefore.id, orgBefore.roles);
+      sideEl.innerHTML = `<div>Roles: <b>${orgBefore.roles.length}</b> <span class="pill">ANTES</span></div>`;
+    }
+    function mountAfter(){
+      clearAll();
+      mountRoot(orgAfter.id, orgAfter.label);
+      addRoles(orgAfter.id, orgAfter.roles);
+      sideEl.innerHTML = `<div>Roles: <b>${orgAfter.roles.length}</b> <span class="pill">DESPUÉS</span></div>`;
+    }
+    function mountDiff(){
+      clearAll();
+      MODE = "DIFF";
+      mountRoot(orgAfter.id, "4P – DIFERENCIAS (colores)");
+      addRoles(orgAfter.id, orgAfter.roles);
+      sideEl.innerHTML = `<div>Nuevo: <b>${newRoles.length}</b> · Comunes: <b>${commonRoles.length}</b></div>`;
+      renderRemovedList();
+    }
+
+    // Eventos de clic (root / rol / subrol)
+    network.on("click", (p)=>{
+      if (!p.nodes.length) return;
+      const id = p.nodes[0];
+
+      // Root según modo
+      if ((MODE==="ANTES" && id===orgBefore.id) || (MODE!=="ANTES" && id===orgAfter.id)) {
+        if (MODE==="ANTES") toggleRoot(orgBefore, orgBefore.roles);
+        else toggleRoot(orgAfter, orgAfter.roles);
+        return;
+      }
+
+      // ¿Rol del modo actual?
+      const roles = (MODE==="ANTES") ? orgBefore.roles : orgAfter.roles;
+      const role = roles.find(r=>r.id===id);
+      if (role){
+        // Persona
+        togglePerson(role);
+        // Subroles (solo en después/diff)
+        if (MODE!=="ANTES") toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
+        return;
       }
     });
+
+    // Botones
+    document.getElementById("btnAntes").onclick = ()=>{ MODE="ANTES"; mountBefore(); };
+    document.getElementById("btnDespues").onclick = ()=>{ MODE="DESPUES"; mountAfter(); };
+    document.getElementById("btnDiff").onclick = ()=>{ MODE="DIFF"; mountDiff(); };
+
+    // Vista inicial
+    MODE="DESPUES"; mountAfter();
   </script>
 </body>
 </html>
+
