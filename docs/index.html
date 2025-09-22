@@ -6,21 +6,18 @@
   <title>Organigramas OAP – Antes / Después</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
-    :root{ --accent:#16a34a; }            /* se cambia por modo */
+    :root{ --accent:#16a34a; }
     body{font-family:system-ui,Arial,sans-serif;margin:0;background:#fff}
     header{padding:16px 20px;border-bottom:1px solid #eee;background:#fff;position:sticky;top:0;z-index:10}
     h1{font-size:1.25rem;margin:0 0 6px}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .hint{color:#555}
-    select,button{
-      padding:8px 10px;border:1px solid #d6d9de;background:#fafafa;border-radius:8px;cursor:pointer
-    }
+    select,button{padding:8px 10px;border:1px solid #d6d9de;background:#fafafa;border-radius:8px;cursor:pointer}
     button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
     #network{height:80vh}
 
-    /* Modos */
-    body.mode-antes{ --accent:#2b6cb0; }   /* azul */
-    body.mode-despues{ --accent:#16a34a; } /* verde */
+    body.mode-antes{ --accent:#2b6cb0; }
+    body.mode-despues{ --accent:#16a34a; }
   </style>
 </head>
 <body class="mode-despues">
@@ -36,14 +33,16 @@
     </div>
     <div class="hint">
       Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles).<br/>
-      En <b>OAP</b>, clic en un equipo abre su subdiagrama.
+      En <b>OAP</b>, clic en un equipo abre su subdiagrama; dentro del equipo, la <b>Jefa OAP</b> queda fija arriba.
     </div>
   </header>
 
   <div id="network"></div>
 
   <script>
-    /* ========= PARÁMETROS ========= */
+    /********************
+     * Configuración
+     ********************/
     const TEAMS = ["oap", "4p", "gestion_conocimiento", "administrativo", "ti", "mipg"];
     const TEAM_LABELS = {
       oap: "OAP General",
@@ -55,57 +54,69 @@
     };
     let currentKey = "oap";
 
-    // Niveles fijos
-    const LVL_ROOT = 0, LVL_ROLE = 1, LVL_CHILD = 2;
+    // Niveles
+    let LEVEL_ROOT = 0, LEVEL_ROLE = 1, LEVEL_CHILD = 2; // se ajustan cuando hay sticky root
 
-    /* ========= ESTADO ========= */
+    // Estados globales
     let orgBefore = null;
     let orgAfter  = null;
-    let MODE = "DESPUES";   // "ANTES" | "DESPUES"
+    let MODE = "DESPUES";  // "ANTES" | "DESPUES"
 
-    /* ========= VIS-NETWORK ========= */
+    // Info de la Jefa (extraída automáticamente del oap.json)
+    let JEFA_LABEL = "Jefa OAP";
+    let JEFA_PERSON = "";  // p.ej. "Paola Rojas"
+
+    // IDs cuando usamos sticky root
+    const STICKY_ID = "GLOBAL_OAP_JEFA";
+    let TEAM_ROOT_ID = null;  // id del nodo raíz del equipo cuando no estamos en OAP
+
+    /********************
+     * Vis-network
+     ********************/
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
     const container = document.getElementById("network");
-
-    const EDGE_COLOR = '#cbd5e1'; // gris suave para todas las líneas
+    const EDGE_COLOR = '#cbd5e1'; // gris suave
 
     const options = {
       layout: { hierarchical: { enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180, parentCentralization:true } },
       physics:false,
       nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
-
-      /* 👇 Líneas con “codos” (ortogonales) */
-      edges:{
-        color:{ color: EDGE_COLOR },
-        smooth: { enabled:true, type:"horizontal", roundness:0.15 }
-        // Si quieres punticas (flechas), descomenta:
-        // , arrows:{ to:{ enabled:true, scaleFactor:0.6 } }
-      },
-
+      edges:{ color:{ color: EDGE_COLOR }, smooth: { enabled:false } }, // sin curvas; haremos codos con nodos intermedios
       interaction:{ hover:true, selectable:true }
     };
     const network = new vis.Network(container, { nodes, edges }, options);
 
-    // estados de expansión
+    // Track de expansion
     const expandedRoot  = new Set();
     const openedPersons = new Set();
     const openedSubroles = new Set();
 
-    /* ========= HELPERS ========= */
+    // Registro de codos intermedios (para poder eliminarlos)
+    const ELBOWS = new Set(); // guarda ids de nodos de codo
+
+    /********************
+     * Utilidades
+     ********************/
     const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#16a34a';
 
-    function cleanLabel(lbl){
+    // Limpia sufijos "(ANTES)/(DESPUÉS)" y retorna texto base
+    function cleanPhase(lbl){
       if(!lbl) return '';
-      return lbl
-        .replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'')
-        .replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'')
-        .trim();
+      return lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
+    }
+    // Separa "Titulo – Persona" -> {title, person}
+    function splitTitlePerson(lbl){
+      if(!lbl) return {title:"", person:""};
+      const noPhase = cleanPhase(lbl);
+      const m = noPhase.match(/^(.+?)\s*[–-]\s*(.+)$/);
+      if(m) return { title: m[1].trim(), person: m[2].trim() };
+      return { title: noPhase, person:"" };
     }
 
     function applyTheme(){
       document.getElementById("btnAntes").classList.toggle('active', MODE==="ANTES");
-      document.getElementById("btnDespues").classList.toggle('active', MODE==="DESPUÉS" || MODE==="DESPUES");
+      document.getElementById("btnDespues").classList.toggle('active', MODE!=="ANTES");
       if (MODE === "ANTES"){
         document.body.classList.add('mode-antes');
         document.body.classList.remove('mode-despues');
@@ -116,61 +127,87 @@
     }
 
     function clearAll(){
-      nodes.clear(); edges.clear();
+      nodes.clear(); edges.clear(); ELBOWS.clear();
       expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
     }
-    function mountRoot(root){
-      nodes.add({ id: root.id, label: cleanLabel(root.label), shape:"box", level: LVL_ROOT,
-                  color:{ background:"#fff", border: accent() }, borderWidth:2 });
-    }
-    function addRoles(root, roles){
-      roles.forEach(r=>{
-        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box", level: LVL_ROLE });
-        if(!edges.get(`${root.id}-${r.id}`)) edges.add({ id:`${root.id}-${r.id}`, from:root.id, to:r.id, color:{ color: EDGE_COLOR } });
+
+    // Nodo raíz (con borde del color del modo). NO muestra persona.
+    function mountRootNode(nodeId, label, level){
+      nodes.add({
+        id: nodeId, label: label, level,
+        color:{ background:"#fff", border: accent() }, borderWidth:2, shape:"box"
       });
-      expandedRoot.add(root.id);
-    }
-    function removeRoles(root, roles){
-      roles.forEach(r=>{
-        const pid = `${r.id}_P`;
-        if(openedPersons.has(pid)){ try{nodes.remove(pid); edges.remove(`${r.id}-${pid}`);}catch{} openedPersons.delete(pid); }
-        closeSubroles(r.id);
-        try{ edges.remove(`${root.id}-${r.id}`);}catch{}
-        try{ nodes.remove(r.id);}catch{}
-      });
-      expandedRoot.delete(root.id);
-    }
-    function toggleRoot(root, roles){
-      if(expandedRoot.has(root.id)) removeRoles(root, roles);
-      else addRoles(root, roles);
-      setTimeout(()=>network.fit({animation:{duration:250}}), 0);
     }
 
-    // Personas (nivel 2). Si no hay persona, no se crea nodo.
-    function togglePerson(role){
+    // Crea línea en codo: parent -> [codo invisible] -> child
+    function addElbowEdge(parentId, childId, parentLevel){
+      const jid = `J_${parentId}_${childId}`;
+      if(!nodes.get(jid)){
+        nodes.add({
+          id: jid, label: "", level: parentLevel,
+          shape:"dot", size:1,
+          color:{ background:"rgba(0,0,0,0)", border:"rgba(0,0,0,0)" },
+          margin:0
+        });
+        ELBOWS.add(jid);
+      }
+      if(!edges.get(`${parentId}-${jid}`))
+        edges.add({ id:`${parentId}-${jid}`, from:parentId, to:jid, color:{ color: EDGE_COLOR }});
+      if(!edges.get(`${jid}-${childId}`))
+        edges.add({ id:`${jid}-${childId}`, from:jid, to:childId, color:{ color: EDGE_COLOR }});
+    }
+    function removeElbowEdge(parentId, childId){
+      const jid = `J_${parentId}_${childId}`;
+      try{ edges.remove(`${parentId}-${jid}`);}catch{}
+      try{ edges.remove(`${jid}-${childId}`);}catch{}
+      if(ELBOWS.has(jid)){ try{ nodes.remove(jid); }catch{} ELBOWS.delete(jid); }
+    }
+
+    // Agrega/quita roles bajo un padre (con codos)
+    function addRoles(parentId, parentLevel, roles, roleLevel){
+      roles.forEach(r=>{
+        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, level: roleLevel, shape:"box" });
+        addElbowEdge(parentId, r.id, parentLevel);
+      });
+      expandedRoot.add(parentId);
+    }
+    function removeRoles(parentId, roles){
+      roles.forEach(r=>{
+        const pid = `${r.id}_P`;
+        if(openedPersons.has(pid)){
+          try{nodes.remove(pid);}catch{}; removeElbowEdge(r.id, pid); openedPersons.delete(pid);
+        }
+        closeSubroles(r.id);
+        removeElbowEdge(parentId, r.id);
+        try{ nodes.remove(r.id);}catch{}
+      });
+      expandedRoot.delete(parentId);
+    }
+
+    // Personas (sólo si existe texto)
+    function togglePerson(role, parentLevel, roleLevel){
       if (!role.person || !role.person.trim()) return;
       const pid = `${role.id}_P`;
       if (openedPersons.has(pid)){
-        try{nodes.remove(pid); edges.remove(`${role.id}-${pid}`);}catch{}
-        openedPersons.delete(pid);
+        try{nodes.remove(pid);}catch{}; removeElbowEdge(role.id, pid); openedPersons.delete(pid);
       } else {
-        const nodeOptions = { id: pid, label: role.person.trim(), shape: "box", font: { italics: true }, level: LVL_CHILD };
+        const nodeOptions = { id: pid, label: role.person.trim(), shape: "box", level: roleLevel+1, font:{ italics:true } };
         if (role.planta) nodeOptions.color = { background: "#efe9ff", border: "#7a5cff" };
         nodes.add(nodeOptions);
-        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid, color:{ color: EDGE_COLOR } });
+        addElbowEdge(role.id, pid, roleLevel); // codo vertical desde el rol
         openedPersons.add(pid);
       }
     }
 
-    function toggleSubroles(roleId, arr){
+    function toggleSubroles(roleId, arr, roleLevel){
       if(!arr || !arr.length) return;
       if(openedSubroles.has(roleId)){
-        arr.forEach(sr=>{ try{nodes.remove(sr.id); edges.remove(`${roleId}-${sr.id}`);}catch{} });
+        arr.forEach(sr=>{ try{nodes.remove(sr.id);}catch{}; removeElbowEdge(roleId, sr.id); });
         openedSubroles.delete(roleId);
       }else{
         arr.forEach(sr=>{
-          if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", level: LVL_CHILD });
-          if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id, color:{ color: EDGE_COLOR } });
+          if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, level: roleLevel+1, shape:"box" });
+          addElbowEdge(roleId, sr.id, roleLevel);
         });
         openedSubroles.add(roleId);
       }
@@ -178,76 +215,146 @@
     function closeSubroles(roleId){
       const arr = orgAfter?.subroles?.[roleId];
       if(!arr || !openedSubroles.has(roleId)) return;
-      arr.forEach(sr=>{ try{nodes.remove(sr.id); edges.remove(`${roleId}-${sr.id}`);}catch{} });
+      arr.forEach(sr=>{ try{nodes.remove(sr.id);}catch{}; removeElbowEdge(roleId, sr.id); });
       openedSubroles.delete(roleId);
     }
 
-    /* ========= MONTAJES ========= */
-    function mountBefore(){
+    /********************
+     * Montajes
+     ********************/
+    function mountOAPBefore(){
       MODE = "ANTES"; applyTheme();
       clearAll();
-      mountRoot(orgBefore);
-      addRoles(orgBefore, orgBefore.roles);
-      updateCounts();
+      LEVEL_ROOT = 0; LEVEL_ROLE = 1; LEVEL_CHILD = 2;
+
+      const title = cleanPhase(orgBefore.label);
+      // extrae persona para usarla después como sticky
+      const {title: baseTitle, person} = splitTitlePerson(title);
+      JEFA_LABEL = baseTitle || "Jefa OAP";
+      if(person) JEFA_PERSON = person;
+
+      mountRootNode(orgBefore.id, JEFA_LABEL, LEVEL_ROOT);
+      addRoles(orgBefore.id, LEVEL_ROOT, orgBefore.roles, LEVEL_ROLE);
+      updateCountsUI();
       network.fit({animation:{duration:250}});
+      // añade conteos automáticos para OAP (DESPUÉS por defecto)
+      enrichCountsForOAP(orgAfter.roles);
     }
-    function mountAfter(){
+    function mountOAPAfter(){
       MODE = "DESPUES"; applyTheme();
       clearAll();
-      mountRoot(orgAfter);
-      addRoles(orgAfter, orgAfter.roles);
-      updateCounts();
+      LEVEL_ROOT = 0; LEVEL_ROLE = 1; LEVEL_CHILD = 2;
+
+      const title = cleanPhase(orgAfter.label);
+      const {title: baseTitle, person} = splitTitlePerson(title);
+      JEFA_LABEL = baseTitle || "Jefa OAP";
+      if(person) JEFA_PERSON = person;
+
+      mountRootNode(orgAfter.id, JEFA_LABEL, LEVEL_ROOT);
+      addRoles(orgAfter.id, LEVEL_ROOT, orgAfter.roles, LEVEL_ROLE);
+      updateCountsUI();
+      network.fit({animation:{duration:250}});
+      enrichCountsForOAP(orgAfter.roles);
+    }
+
+    // Dentro de un equipo: se muestra sticky root + raíz del equipo + roles
+    function mountTeamBefore(){
+      MODE = "ANTES"; applyTheme();
+      clearAll();
+      LEVEL_ROOT = 0;   // Jefa
+      const TEAM_LEVEL = 1;
+      LEVEL_ROLE = 2;   // roles del equipo
+      LEVEL_CHILD = 3;
+
+      TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
+
+      // sticky jefa
+      mountRootNode(STICKY_ID, JEFA_LABEL, LEVEL_ROOT);
+      // raíz del equipo (label sin persona)
+      const teamLabel = cleanPhase(orgBefore.label);
+      nodes.add({ id: TEAM_ROOT_ID, label: teamLabel, level: TEAM_LEVEL, shape:"box" });
+      addElbowEdge(STICKY_ID, TEAM_ROOT_ID, LEVEL_ROOT);
+
+      addRoles(TEAM_ROOT_ID, TEAM_LEVEL, orgBefore.roles, LEVEL_ROLE);
+      updateCountsUI();
       network.fit({animation:{duration:250}});
     }
-    function updateCounts(){
+    function mountTeamAfter(){
+      MODE = "DESPUES"; applyTheme();
+      clearAll();
+      LEVEL_ROOT = 0;
+      const TEAM_LEVEL = 1;
+      LEVEL_ROLE = 2;
+      LEVEL_CHILD = 3;
+
+      TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
+
+      mountRootNode(STICKY_ID, JEFA_LABEL, LEVEL_ROOT);
+      const teamLabel = cleanPhase(orgAfter.label);
+      nodes.add({ id: TEAM_ROOT_ID, label: teamLabel, level: TEAM_LEVEL, shape:"box" });
+      addElbowEdge(STICKY_ID, TEAM_ROOT_ID, LEVEL_ROOT);
+
+      addRoles(TEAM_ROOT_ID, TEAM_LEVEL, orgAfter.roles, LEVEL_ROLE);
+      updateCountsUI();
+      network.fit({animation:{duration:250}});
+    }
+
+    function updateCountsUI(){
       document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
       document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
     }
 
-    /* ========= CARGA DE EQUIPO (JSON) ========= */
+    // En OAP, agrega/normaliza "(N)" leyendo cada JSON de equipo
+    async function enrichCountsForOAP(roles){
+      if(currentKey !== "oap" || !roles) return;
+      for(const r of roles){
+        if(!r.route) continue;
+        try{
+          const res = await fetch(`data/${r.route}.json`);
+          const data = await res.json();
+          const n = (data.after?.roles?.length ?? 0);
+          const base = String(r.name).replace(/\s*\(\d+\)\s*$/,'').trim();
+          const withCount = `${base} (${n})`;
+          nodes.update({ id: r.id, label: withCount });
+        }catch(_){}
+      }
+    }
+
+    /********************
+     * Carga de equipo
+     ********************/
     async function loadTeam(key){
       try{
         const res = await fetch(`data/${key}.json`);
         const data = await res.json();
         const prefix = key.toUpperCase();
 
-        orgBefore = {
-          id: `ROOT_BEFORE_${prefix}`,
-          label: data.before.label || `${data.meta?.equipo || key} – ANTES`,
-          roles: (data.before.roles || []).map(r => ({
-            id: `${prefix}_${r.id}`,
-            name: r.name,
-            person: r.person || "",
-            planta: !!r.planta,
-            route: r.route || ""
-          }))
-        };
+        // Normaliza roles
+        const beforeRoles = (data.before.roles || []).map(r => ({
+          id: `${prefix}_${r.id}`, name: r.name, person: r.person || "", planta: !!r.planta, route: r.route || ""
+        }));
+        const afterRoles = (data.after.roles || []).map(r => ({
+          id: `${prefix}_${r.id}`, name: r.name, person: r.person || "", planta: !!r.planta, route: r.route || ""
+        }));
 
         const sub = {};
         if (data.after.subroles){
           for (const roleId in data.after.subroles){
             sub[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr => ({
-              id: `${prefix}_${sr.id}`,
-              name: sr.name,
-              person: sr.person || "",
-              planta: !!sr.planta,
-              route: sr.route || ""
+              id: `${prefix}_${sr.id}`, name: sr.name, person: sr.person || "", planta: !!sr.planta, route: sr.route || ""
             }));
           }
         }
 
-        orgAfter = {
-          id: `ROOT_AFTER_${prefix}`,
-          label: data.after.label || `${data.meta?.equipo || key} – DESPUÉS`,
-          roles: (data.after.roles || []).map(r => ({
-            id: `${prefix}_${r.id}`,
-            name: r.name,
-            person: r.person || "",
-            planta: !!r.planta,
-            route: r.route || ""
-          })),
-          subroles: sub
-        };
+        orgBefore = { id: `ROOT_BEFORE_${prefix}`, label: data.before.label || `${data.meta?.equipo || key} – ANTES`, roles: beforeRoles };
+        orgAfter  = { id: `ROOT_AFTER_${prefix}`,  label: data.after.label  || `${data.meta?.equipo || key} – DESPUÉS`, roles: afterRoles, subroles: sub };
+
+        // Si estamos cargando OAP, extrae jefa
+        if(key === "oap"){
+          const {title: t1, person: p1} = splitTitlePerson(cleanPhase(orgAfter.label));
+          if(t1) JEFA_LABEL = t1;
+          if(p1) JEFA_PERSON = p1;
+        }
 
         const nice = TEAM_LABELS[key] || (data.meta?.equipo || key);
         document.getElementById("title").textContent =
@@ -256,32 +363,86 @@
         currentKey = key;
         document.getElementById("teamSelect").value = key;
 
-        // por defecto vista DESPUÉS
-        mountAfter();
+        // Vista por defecto
+        if(key === "oap") mountOAPAfter(); else mountTeamAfter();
       }catch(err){
         console.error(err);
         alert(`No pude cargar data/${key}.json`);
       }
     }
 
-    /* ========= INTERACCIÓN ========= */
+    /********************
+     * Interacción
+     ********************/
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
 
+      // OAP
+      if(currentKey === "oap"){
+        if(MODE==="ANTES"){
+          if(id===orgBefore.id){ // toggle hijos de jefa
+            expandedRoot.has(orgBefore.id)
+              ? removeRoles(orgBefore.id, orgBefore.roles)
+              : addRoles(orgBefore.id, LEVEL_ROOT, orgBefore.roles, LEVEL_ROLE);
+            return;
+          }
+          const role = orgBefore.roles.find(r=>r.id===id);
+          if(!role) return;
+          if(role.route) return loadTeam(role.route);  // navegar a equipo
+          return togglePerson(role, LEVEL_ROOT, LEVEL_ROLE);
+        }else{
+          if(id===orgAfter.id){
+            expandedRoot.has(orgAfter.id)
+              ? removeRoles(orgAfter.id, orgAfter.roles)
+              : addRoles(orgAfter.id, LEVEL_ROOT, orgAfter.roles, LEVEL_ROLE);
+            return;
+          }
+          const role = orgAfter.roles.find(r=>r.id===id);
+          if(!role) return;
+          if(role.route) return loadTeam(role.route);
+          togglePerson(role, LEVEL_ROOT, LEVEL_ROLE);
+          toggleSubroles(role.id, orgAfter.subroles?.[role.id], LEVEL_ROLE);
+        }
+        return;
+      }
+
+      // Dentro de un equipo (sticky root arriba)
+      const teamRoot = TEAM_ROOT_ID;
       if(MODE==="ANTES"){
-        if(id===orgBefore.id) return toggleRoot(orgBefore, orgBefore.roles);
+        if(id===STICKY_ID){
+          // clic en Jefa: mostrar/ocultar su persona
+          togglePerson({ id: STICKY_ID, person: JEFA_PERSON, planta: true }, LEVEL_ROOT, LEVEL_ROOT);
+          return;
+        }
+        if(id===teamRoot){
+          expandedRoot.has(teamRoot)
+            ? removeRoles(teamRoot, orgBefore.roles)
+            : addRoles(teamRoot, 1, orgBefore.roles, 2);
+          return;
+        }
         const role = orgBefore.roles.find(r=>r.id===id);
-        if(!role) return;
-        if (currentKey === "oap" && role.route) return loadTeam(role.route); // routing desde OAP
-        return togglePerson(role);
-      } else {
-        if(id===orgAfter.id) return toggleRoot(orgAfter, orgAfter.roles);
+        if(role){
+          togglePerson(role, 1, 2);
+          return;
+        }
+      }else{ // DESPUÉS
+        if(id===STICKY_ID){
+          togglePerson({ id: STICKY_ID, person: JEFA_PERSON, planta: true }, LEVEL_ROOT, LEVEL_ROOT);
+          return;
+        }
+        if(id===teamRoot){
+          expandedRoot.has(teamRoot)
+            ? removeRoles(teamRoot, orgAfter.roles)
+            : addRoles(teamRoot, 1, orgAfter.roles, 2);
+          return;
+        }
         const role = orgAfter.roles.find(r=>r.id===id);
-        if(!role) return;
-        if (currentKey === "oap" && role.route) return loadTeam(role.route); // routing desde OAP
-        togglePerson(role);
-        toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
+        if(role){
+          togglePerson(role, 1, 2);
+          toggleSubroles(role.id, orgAfter.subroles?.[role.id], 2);
+          return;
+        }
       }
     });
 
@@ -292,14 +453,19 @@
     sel.addEventListener("change", e => loadTeam(e.target.value));
 
     // Botones
-    document.getElementById("btnAntes").onclick   = ()=> mountBefore();
-    document.getElementById("btnDespues").onclick = ()=> mountAfter();
+    document.getElementById("btnAntes").onclick   = ()=>{
+      if(currentKey==="oap") mountOAPBefore(); else mountTeamBefore();
+    };
+    document.getElementById("btnDespues").onclick = ()=>{
+      if(currentKey==="oap") mountOAPAfter(); else mountTeamAfter();
+    };
 
-    // Inicial: OAP base
+    // Inicial
     loadTeam(currentKey);
   </script>
 </body>
 </html>
+
 
 
 
