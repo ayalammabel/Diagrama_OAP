@@ -63,13 +63,13 @@
     // cache-buster
     const BUST = () => `v=${Date.now()}`;
 
-    // ---- Parámetros de espaciado (ajústalos a gusto) ----
+    // ---- Parámetros de espaciado: énfasis en HORIZONTAL ----
     const SPACING = {
-      baseNode: 260,          // mínimo de separación horizontal
-      perNode:  20,           // cuánto crecer por cada nodo en una “fila”
-      perSubrole: 70,         // extra por cada sub-rol del grupo más grande abierto
-      baseLevel: 160,         // separación vertical base
-      extraWhenOpen: 80       // extra vertical cuando hay sub-roles/personas abiertas
+      baseNode: 340,     // separación horizontal base (más grande)
+      perNode:   28,     // refuerzo por cantidad de nodos en la “fila”
+      perSub:    90,     // refuerzo por sub-roles del bloque más grande abierto
+      baseLevel: 130,    // separación vertical base (moderada)
+      extraVert: 30      // extra vertical cuando hay subroles/personas
     };
 
     /********** vis-network **********/
@@ -83,9 +83,10 @@
         enabled:true, direction:"UD",
         levelSeparation:SPACING.baseLevel,
         nodeSpacing:SPACING.baseNode,
+        treeSpacing:SPACING.baseNode * 0.6,   // colchón adicional H
         parentCentralization:true,
-        blockShifting:true,
-        edgeMinimization:true,
+        blockShifting:false,                   // ❗ no “apretar” bloques
+        edgeMinimization:false,                // ❗ evita que junte para optimizar líneas
         sortMethod:"hubsize"
       }},
       physics:false,
@@ -150,7 +151,7 @@
       scheduleReflow();
     }
 
-    // —— PERSONAS (click) —— 
+    // PERSONAS
     function togglePerson(role, parentLevel){
       if (!role.person || !role.person.trim()) return;
       const pid = `${role.id}_P`;
@@ -167,7 +168,7 @@
       scheduleReflow();
     }
 
-    // —— SUBROLES: siempre cuadro del sub-rol + persona debajo (o “Nuevo perfil”) —— 
+    // SUBROLES (sub-rol y debajo la persona / “Nuevo perfil”)
     function toggleSubroles(parentRoleId, arr, parentLevel){
       if(!arr || !arr.length) return;
 
@@ -184,8 +185,8 @@
         return;
       }
 
-      const levelRole   = (parentLevel ?? LV_CHILD) + 1; // sub-rol
-      const levelPerson = levelRole + 1;                 // persona
+      const levelRole   = (parentLevel ?? LV_CHILD) + 1;
+      const levelPerson = levelRole + 1;
 
       arr.forEach(sr=>{
         if(!nodes.get(sr.id))
@@ -193,10 +194,10 @@
         if(!edges.get(`${parentRoleId}-${sr.id}`))
           edges.add({ id: `${parentRoleId}-${sr.id}`, from: parentRoleId, to: sr.id });
 
-        const personLabel = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
+        const labelP = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
         const pid = `${sr.id}_P`;
         if(!nodes.get(pid)){
-          const nodeP = { id: pid, label: personLabel, shape:"box", level: levelPerson, font:{ italics:true } };
+          const nodeP = { id: pid, label: labelP, shape:"box", level: levelPerson, font:{ italics:true } };
           if(sr.planta) nodeP.color = { background:"#efe9ff", border:"#7a5cff" };
           nodes.add(nodeP);
         }
@@ -221,40 +222,39 @@
       scheduleReflow();
     }
 
-    // —— Espaciado dinámico (más generoso) —— 
+    // —— Espaciado: énfasis horizontal —— 
     function scheduleReflow(){
-      // ¿Cuántos nodos hay por nivel?
       const nL2 = nodes.get({ filter:n=>n.level===LV_ROLE }).length;
       const nL3 = nodes.get({ filter:n=>n.level===LV_CHILD }).length;
       const nL4 = nodes.get({ filter:n=>n.level===LV_CHILD+1 }).length;
 
-      // ¿Cuál es el grupo de sub-roles más grande actualmente abierto?
       let maxSubrolesOpen = 0;
       openedSubroles.forEach(roleId=>{
         const len = orgAfter?.subroles?.[roleId]?.length || 0;
         if(len > maxSubrolesOpen) maxSubrolesOpen = len;
       });
 
-      const maxRow = Math.max(3, nL2, nL3, Math.ceil(nL4*0.75));
+      // Valor grande para nodeSpacing (horizontal)
+      const maxRow = Math.max(3, nL2, nL3, Math.ceil(nL4 * 0.75));
+      const nodeSpacing =
+        SPACING.baseNode +
+        SPACING.perNode * maxRow +
+        SPACING.perSub  * maxSubrolesOpen;
 
-      // cálculo final de separación
-      const nodeSpacing = Math.max(
-        SPACING.baseNode,
-        SPACING.baseNode + SPACING.perNode * maxRow,
-        SPACING.baseNode + SPACING.perSubrole * maxSubrolesOpen
-      );
-
+      // Vertical moderada
       const levelSeparation =
         SPACING.baseLevel +
-        (openedSubroles.size || openedPersons.size ? SPACING.extraWhenOpen : 0) +
-        Math.min(180, 6 * nL4);
+        ((openedSubroles.size || openedPersons.size) ? SPACING.extraVert : 0);
+
+      const treeSpacing = Math.max( SPACING.baseNode * 0.6, nodeSpacing * 0.5 );
 
       network.setOptions({
-        layout:{ hierarchical:{ nodeSpacing, levelSeparation } }
+        layout:{ hierarchical:{ nodeSpacing, levelSeparation, treeSpacing, blockShifting:false, edgeMinimization:false } }
       });
+      network.redraw();
     }
 
-    // —— re-cablear bajo el LÍDER —— 
+    // Re-cablear bajo líder
     function rewireUnderLeaderIfAny(rootId, roles){
       let leaderId = LEADER_NODE_ID;
       if(!leaderId){
@@ -506,3 +506,4 @@
   </script>
 </body>
 </html>
+
