@@ -1,0 +1,30 @@
+{
+  "meta": { "equipo": "MIPG", "titulo": "Modelo Integrado de Planeación y Gestión" },
+
+  "before": {
+    "label": "MIPG (8 roles) – ANTES",
+    "roles": [
+      { "id": "B_LIDER",   "name": "Líder",                "person": "Paula Sosa" },
+      { "id": "B_PE",      "name": "Procesos estratégicos","person": "Adriana Blanco" },
+      { "id": "B_PA1",     "name": "Procesos de Apoyo",    "person": "Luz Angela Andrade" },
+      { "id": "B_PA2",     "name": "Procesos de Apoyo",    "person": "Diana Hernandez" },
+      { "id": "B_PM",      "name": "Procesos Misionales",  "person": "Zareth Doncel" },
+      { "id": "B_GA1",     "name": "Gestión Ambiental",    "person": "Jhoan Ayala" },
+      { "id": "B_GA2",     "name": "Gestión Ambiental",    "person": "William Arias" },
+      { "id": "B_WEB",     "name": "Página web",           "person": "Miguel Acuña" }
+    ]
+  },
+
+  "after": {
+    "label": "MIPG (6 roles) – DESPUÉS",
+    "roles": [
+      { "id": "A_LIDER",   "name": "Líder",                                  "person": "Paula Sosa" },
+      { "id": "A_PE",      "name": "Referenta Procesos Estratégicos",        "person": "Adriana Blanco", "planta": true },
+      { "id": "A_PA1",     "name": "Referenta de Procesos de Apoyo",         "person": "Luz Angela Andrade" },
+      { "id": "A_PA2",     "name": "Referenta de Procesos de Apoyo",         "person": "Nuevo Perfil" },
+      { "id": "A_PM",      "name": "Referente de Procesos Misionales",       "person": "Nuevo Perfil" },
+      { "id": "A_GA",      "name": "Referente de Gestión Ambiental",         "person": "Jhoan Ayala" }
+    ],
+    "subroles": {}
+  }
+}
