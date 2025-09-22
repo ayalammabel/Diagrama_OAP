@@ -41,15 +41,8 @@
 
   <script>
     /********** Config **********/
-    const TEAMS = ["oap", "4p", "gestion_conocimiento", "administrativo", "ti", "mipg"];
-    const TEAM_LABELS = {
-      oap: "OAP General",
-      "4p": "4P",
-      gestion_conocimiento: "Gestión del Conocimiento",
-      administrativo: "Administrativo",
-      ti: "TI",
-      mipg: "MIPG"
-    };
+    const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
+    const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
     let currentKey = "oap";
 
     // niveles (se reajustan si hay sticky root)
@@ -64,6 +57,9 @@
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
 
+    // líder detectado/forzado por JSON
+    let LEADER_NODE_ID = null;
+
     /********** vis-network **********/
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
@@ -71,25 +67,14 @@
 
     const EDGE_COLOR = '#cbd5e1';
     const options = {
-      layout: {
-        hierarchical: {
-          enabled:true,
-          direction:"UD",
-          levelSeparation:120,
-          nodeSpacing:180,
-          parentCentralization:true,
-          blockShifting:true,
-          edgeMinimization:true,
-          sortMethod:"hubsize"
-        }
-      },
+      layout: { hierarchical: {
+        enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180,
+        parentCentralization:true, blockShifting:true, edgeMinimization:true, sortMethod:"hubsize"
+      }},
       physics:false,
       nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
-      // 👇 codo nativo: horizontal primero, luego vertical (sin diagonales)
-      edges:{
-        color:{ color: EDGE_COLOR },
-        smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" }
-      },
+      // codo nativo (horizontal + vertical)
+      edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } },
       interaction:{ hover:true, selectable:true }
     };
     const network = new vis.Network(container, { nodes, edges }, options);
@@ -146,9 +131,9 @@
       expandedRoot.delete(parentId);
     }
 
-    // personas
+    // —— PERSONAS (click) ——
     function togglePerson(role, level){
-      if (!role.person || !role.person.trim()) return;
+      if (!role.person || !role.person.trim()) return; // si no hay persona, no muestres nada
       const pid = `${role.id}_P`;
       if(openedPersons.has(pid)){
         try{nodes.remove(pid);}catch{}; try{edges.remove(`${role.id}-${pid}`);}catch{}; openedPersons.delete(pid);
@@ -160,15 +145,33 @@
         openedPersons.add(pid);
       }
     }
+
+    // heurísticas para limpiar/mostrar como persona
+    const isNoiseLabel = (s="") => /^\s*\(.*\)\s*$/.test(s) || /ver\s+analistas|varios\s+apoyos?/i.test(s);
+    const isPersonLike = (sr) => (sr?.person && sr.person.trim()) || /nuevo\s+perfil|perfil\s+nuevo/i.test(sr?.name||"");
+
     function toggleSubroles(roleId, arr, level){
       if(!arr || !arr.length) return;
       if(openedSubroles.has(roleId)){
-        arr.forEach(sr=>{ try{nodes.remove(sr.id);}catch{}; try{edges.remove(`${roleId}-${sr.id}`);}catch{} });
+        arr.forEach(sr=>{
+          const rid = sr.id;
+          const pid = `${rid}_P`;
+          try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
+          try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+        });
         openedSubroles.delete(roleId);
       }else{
         arr.forEach(sr=>{
-          if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, level, shape:"box" });
-          if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+          if(isNoiseLabel(sr.name)) return; // ignora "(ver analistas)" etc.
+          if(isPersonLike(sr)){
+            const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "(por definir)";
+            const pid = `${sr.id}_P`;
+            if(!nodes.get(pid)) nodes.add({ id:pid, label, shape:"box", level, font:{ italics:true } });
+            if(!edges.get(`${roleId}-${pid}`)) edges.add({ id:`${roleId}-${pid}`, from:roleId, to:pid });
+          }else{
+            if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", level });
+            if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+          }
         });
         openedSubroles.add(roleId);
       }
@@ -176,8 +179,35 @@
     function closeSubroles(roleId){
       const arr = orgAfter?.subroles?.[roleId];
       if(!arr || !openedSubroles.has(roleId)) return;
-      arr.forEach(sr=>{ try{nodes.remove(sr.id);}catch{}; try{edges.remove(`${roleId}-${sr.id}`);}catch{} });
+      arr.forEach(sr=>{
+        const rid = sr.id, pid = `${rid}_P`;
+        try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
+        try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+      });
       openedSubroles.delete(roleId);
+    }
+
+    // —— re-cablear bajo el LÍDER (si existe) ——
+    function rewireUnderLeaderIfAny(rootId, roles){
+      // usa leaderId del JSON o detecta por nombre
+      let leaderId = LEADER_NODE_ID;
+      if(!leaderId){
+        const cand = roles.find(r=>/^\s*l[ií]der\s*$/i.test(r.name));
+        leaderId = cand?.id || null;
+      }
+      if(!leaderId || !nodes.get(leaderId)) return;
+
+      // líder a nivel LV_ROLE; el resto baja a LV_CHILD y se conecta al líder
+      nodes.update({ id: leaderId, level: LV_ROLE });
+      roles.forEach(r=>{
+        if(r.id === leaderId) return;
+        // quita enlace root->rol si existe
+        try{ edges.remove(`${rootId}-${r.id}`); }catch{}
+        // setea nivel y crea enlace líder->rol
+        nodes.update({ id: r.id, level: LV_CHILD });
+        if(!edges.get(`${leaderId}-${r.id}`))
+          edges.add({ id:`${leaderId}-${r.id}`, from: leaderId, to: r.id });
+      });
     }
 
     /********** montajes **********/
@@ -215,9 +245,7 @@
     function mountTeamBefore(){
       MODE="ANTES"; applyTheme();
       clearAll();
-      LV_ROOT=0; // jefa
-      const TEAM_LEVEL=1;
-      LV_ROLE=2; LV_CHILD=3;
+      LV_ROOT=0; const TEAM_LEVEL=1; LV_ROLE=2; LV_CHILD=3;
 
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountRootNode(STICKY_ID, JEFA_LABEL, LV_ROOT);
@@ -225,15 +253,14 @@
       edges.add({ id:`${STICKY_ID}-${TEAM_ROOT_ID}`, from:STICKY_ID, to:TEAM_ROOT_ID });
 
       addRoles(TEAM_ROOT_ID, orgBefore.roles, LV_ROLE);
+      rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgBefore.roles); // 👈 líder arriba del equipo
       updateCountsUI();
       network.fit({animation:{duration:250}});
     }
     function mountTeamAfter(){
       MODE="DESPUES"; applyTheme();
       clearAll();
-      LV_ROOT=0;
-      const TEAM_LEVEL=1;
-      LV_ROLE=2; LV_CHILD=3;
+      LV_ROOT=0; const TEAM_LEVEL=1; LV_ROLE=2; LV_CHILD=3;
 
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountRootNode(STICKY_ID, JEFA_LABEL, LV_ROOT);
@@ -241,6 +268,7 @@
       edges.add({ id:`${STICKY_ID}-${TEAM_ROOT_ID}`, from:STICKY_ID, to:TEAM_ROOT_ID });
 
       addRoles(TEAM_ROOT_ID, orgAfter.roles, LV_ROLE);
+      rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgAfter.roles); // 👈 líder arriba del equipo
       updateCountsUI();
       network.fit({animation:{duration:250}});
     }
@@ -260,8 +288,7 @@
           const data = await res.json();
           const n = (data.after?.roles?.length ?? 0);
           const base = String(r.name).replace(/\s*\(\d+\)\s*$/,'').trim();
-          const withCount = `${base} (${n})`;
-          nodes.update({ id:r.id, label:withCount });
+          nodes.update({ id:r.id, label:`${base} (${n})` });
         }catch(_){}
       }
     }
@@ -288,6 +315,10 @@
             }));
           }
         }
+
+        // líder forzado por JSON (opcional)
+        LEADER_NODE_ID = null;
+        if(data.meta?.leaderId) LEADER_NODE_ID = `${prefix}_${data.meta.leaderId}`;
 
         orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles:beforeRoles };
         orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles:afterRoles, subroles:sub };
@@ -346,28 +377,19 @@
       // Equipo con sticky root
       const teamRoot = TEAM_ROOT_ID;
       if(MODE==="ANTES"){
-        if(id===STICKY_ID){ // clic jefa dentro del equipo
-          togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT+1);
-          return;
-        }
+        if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT+1); return; }
         if(id===teamRoot){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgBefore.roles)
-                                     : addRoles(teamRoot, orgBefore.roles, LV_ROLE);
+                                     : (addRoles(teamRoot, orgBefore.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgBefore.roles));
           return;
         }
         const role = orgBefore.roles.find(r=>r.id===id);
-        if(role){
-          togglePerson(role, LV_CHILD);
-          return;
-        }
+        if(role){ togglePerson(role, LV_CHILD); return; }
       }else{
-        if(id===STICKY_ID){
-          togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT+1);
-          return;
-        }
+        if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT+1); return; }
         if(id===teamRoot){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgAfter.roles)
-                                     : addRoles(teamRoot, orgAfter.roles, LV_ROLE);
+                                     : (addRoles(teamRoot, orgAfter.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgAfter.roles));
           return;
         }
         const role = orgAfter.roles.find(r=>r.id===id);
@@ -393,6 +415,5 @@
   </script>
 </body>
 </html>
-
 
 
