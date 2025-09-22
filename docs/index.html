@@ -27,7 +27,7 @@
       <button id="btnDespues">Ver DESPUÉS</button>
     </div>
     <div class="hint">
-      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona. <br/>
+      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles).<br/>
       En <b>OAP</b>, clic en un equipo abre su subdiagrama.
     </div>
   </header>
@@ -36,6 +36,7 @@
 
   <script>
     /* ========= PARÁMETROS ========= */
+    // Claves de JSON que tienes en /docs/data/
     const TEAMS = ["oap", "4p", "gestion_conocimiento", "administrativo", "ti", "mipg"];
     const TEAM_LABELS = {
       oap: "OAP General",
@@ -47,6 +48,9 @@
     };
     let currentKey = "oap"; // arranca en el organigrama base
 
+    // Niveles (para que nada se suba por encima de la raíz)
+    const LVL_ROOT = 0, LVL_ROLE = 1, LVL_CHILD = 2;
+
     /* ========= ESTADO ========= */
     let orgBefore = null;   // { id, label, roles: [...] }
     let orgAfter  = null;   // { id, label, roles: [...], subroles: { roleId: [...] } }
@@ -57,7 +61,7 @@
     const edges = new vis.DataSet();
     const container = document.getElementById("network");
     const options = {
-      layout: { hierarchical: { enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180 } },
+      layout: { hierarchical: { enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180, parentCentralization:true } },
       physics:false,
       nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#777" } },
       interaction:{ hover:true, selectable:true }
@@ -75,11 +79,11 @@
       expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
     }
     function mountRoot(root){
-      nodes.add({ id: root.id, label: root.label, shape:"box" });
+      nodes.add({ id: root.id, label: root.label, shape:"box", level: LVL_ROOT });
     }
     function addRoles(root, roles){
       roles.forEach(r=>{
-        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box" });
+        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box", level: LVL_ROLE });
         if(!edges.get(`${root.id}-${r.id}`)) edges.add({ id:`${root.id}-${r.id}`, from:root.id, to:r.id });
       });
       expandedRoot.add(root.id);
@@ -107,7 +111,7 @@
         try{nodes.remove(pid); edges.remove(`${role.id}-${pid}`);}catch{}
         openedPersons.delete(pid);
       } else {
-        const nodeOptions = { id: pid, label: role.person.trim(), shape: "box", font: { italics: true } };
+        const nodeOptions = { id: pid, label: role.person.trim(), shape: "box", font: { italics: true }, level: LVL_CHILD };
         if (role.planta) nodeOptions.color = { background: "#e9e0ff", border: "#7a5cff" };
         nodes.add(nodeOptions);
         edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
@@ -122,7 +126,7 @@
         openedSubroles.delete(roleId);
       }else{
         arr.forEach(sr=>{
-          if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box" });
+          if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", level: LVL_CHILD });
           if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
         });
         openedSubroles.add(roleId);
@@ -168,7 +172,7 @@
             name: r.name,
             person: r.person || "",
             planta: !!r.planta,
-            route: r.route || ""
+            route: r.route || ""      // para navegar desde OAP
           }))
         };
 
@@ -222,20 +226,18 @@
         const role = orgBefore.roles.find(r=>r.id===id);
         if(!role) return;
 
-        // Si estamos en OAP y el rol tiene route, navegar al subdiagrama
+        // En OAP (ANTES), si el rol tiene route => navegar
         if (currentKey === "oap" && role.route) return loadTeam(role.route);
 
-        // Si no, comportamiento normal
         return togglePerson(role);
       } else {
         if(id===orgAfter.id) return toggleRoot(orgAfter, orgAfter.roles);
         const role = orgAfter.roles.find(r=>r.id===id);
         if(!role) return;
 
-        // Navegación desde OAP (DESPUÉS)
+        // En OAP (DESPUÉS), si el rol tiene route => navegar
         if (currentKey === "oap" && role.route) return loadTeam(role.route);
 
-        // Comportamiento normal
         togglePerson(role);
         toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
       }
