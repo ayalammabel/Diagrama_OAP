@@ -8,13 +8,21 @@
   <style>
     :root{ --accent:#16a34a; }
     body{font-family:system-ui,Arial,sans-serif;margin:0;background:#fff}
-    header{padding:16px 20px;border-bottom:1px solid #eee;background:#fff;position:sticky;top:0;z-index:10}
-    h1{font-size:1.25rem;margin:0 0 6px}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .hint{color:#555}
+    header{padding:12px 16px;border-bottom:1px solid #eee;background:#fff;position:sticky;top:0;z-index:10}
+    h1{font-size:1.05rem;margin:0 0 6px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .row .grow{flex:1}
+    .hint{color:#666;font-size:.92rem}
     select,button{padding:8px 10px;border:1px solid #d6d9de;background:#fafafa;border-radius:8px;cursor:pointer}
     button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-    #network{height:80vh}
+    #network{height:83vh}
+
+    /* Toolbar de zoom */
+    .zoombar{display:flex;gap:6px;align-items:center}
+    .zoombar .pill{min-width:42px;text-align:center;background:#f6f7f9;border:1px solid #d6d9de;border-radius:8px;padding:6px 10px}
+    .zoombar .seg button{border-radius:8px}
+    .zoombar .seg button+button{margin-left:4px}
+    .zoombar .seg button:active{transform:scale(0.98)}
 
     body.mode-antes{ --accent:#2b6cb0; }
     body.mode-despues{ --accent:#16a34a; }
@@ -23,17 +31,31 @@
 <body class="mode-despues">
   <header>
     <div class="row">
-      <h1 id="title">Organigramas – OAP</h1>
+      <div class="grow">
+        <h1 id="title">Organigramas – OAP</h1>
+        <div class="hint">
+          Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles). En <b>OAP</b>, clic en un equipo abre su subdiagrama.
+        </div>
+      </div>
+
+      <!-- Controles principales -->
       <label>
         Equipo:
         <select id="teamSelect"></select>
       </label>
       <button id="btnAntes">Ver ANTES</button>
       <button id="btnDespues" class="active">Ver DESPUÉS</button>
-    </div>
-    <div class="hint">
-      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles).<br/>
-      En <b>OAP</b>, clic en un equipo abre su subdiagrama; dentro del equipo, la <b>Jefa OAP</b> queda fija arriba.
+
+      <!-- Zoom bar -->
+      <div class="zoombar">
+        <div class="seg">
+          <button id="zoomOut">−</button>
+          <button id="zoomFit">Ajustar</button>
+          <button id="zoomReset">100%</button>
+          <button id="zoomIn">+</button>
+        </div>
+        <div class="pill" id="zoomLabel">100%</div>
+      </div>
     </div>
   </header>
 
@@ -64,9 +86,8 @@
     const BUST = () => `v=${Date.now()}`;
 
     /********** ESPACIADO FIJO **********/
-    // Ajusta estos tres valores a tu gusto
-    const FIXED_SPACING   = 320; // separación horizontal entre cuadros del mismo nivel
-    const FIXED_TREE_SP   = 320; // separación entre subárboles/ramas
+    const FIXED_SPACING   = 320; // separación horizontal entre hermanos
+    const FIXED_TREE_SP   = 320; // separación entre ramas
     const FIXED_LEVEL_SEP = 140; // separación vertical entre niveles
 
     /********** vis-network **********/
@@ -80,9 +101,9 @@
       levelSeparation: FIXED_LEVEL_SEP,
       nodeSpacing: FIXED_SPACING,
       treeSpacing: FIXED_TREE_SP,
-      blockShifting:false,          // no compactar bloques
-      edgeMinimization:false,       // no “apretar” para minimizar cruces
-      parentCentralization:false,   // no recentrar sobre el padre
+      blockShifting:false,
+      edgeMinimization:false,
+      parentCentralization:false,
       sortMethod:"directed",
       shakeTowards:"roots"
     };
@@ -94,9 +115,13 @@
       edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } },
       interaction:{
         hover:true,
-        hoverConnectedEdges:false,   // evita resaltar/”tensar” aristas al hover
+        hoverConnectedEdges:false,
         selectable:true,
-        dragNodes:false              // no permitir arrastrar nodos
+        dragNodes:false,          // nodos fijos
+        dragView:true,            // puedes arrastrar el lienzo
+        zoomView:true,            // puedes hacer zoom con rueda/gestos
+        navigationButtons:true,   // botones nativos (esquina)
+        keyboard:{ bindToWindow:true } // +/− y flechas
       }
     };
     const network = new vis.Network(container, { nodes, edges }, options);
@@ -111,15 +136,38 @@
       ids.forEach(id => nodes.update({ id, x: pos[id].x, y: pos[id].y, fixed:{x:true,y:true} }));
     }
     function layoutAndLock(){
-      // Reaplica jerárquico + fit + congela
+      // recalcula layout, ajusta vista y congela posiciones
       unlockAll();
       network.setOptions({ layout:{ hierarchical: { ...baseHierOpts } } });
-      // Espera un tick para que aplique layout y luego congela
       setTimeout(()=>{
         network.fit({animation:{duration:200}});
         lockAll();
+        updateZoomLabel();
       },0);
     }
+
+    // Zoom helpers
+    const ZOOM_STEP = 0.15;
+    const MIN_SCALE = 0.20;
+    const MAX_SCALE = 2.6;
+
+    function updateZoomLabel(){
+      const s = network.getScale();
+      document.getElementById("zoomLabel").textContent = Math.round(s*100) + "%";
+    }
+    function zoomTo(scale){
+      const pos = network.getViewPosition();
+      network.moveTo({ position: pos, scale: Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale)) });
+      updateZoomLabel();
+    }
+    function zoomIn(){  zoomTo(network.getScale() + ZOOM_STEP); }
+    function zoomOut(){ zoomTo(network.getScale() - ZOOM_STEP); }
+    function zoomReset(){ zoomTo(1); }
+    function zoomFit(){ network.fit({animation:{duration:200, easingFunction:"easeInOutQuad"}}); updateZoomLabel(); }
+
+    // Actualiza etiqueta de zoom al hacer scroll/gesto
+    network.on("zoom", updateZoomLabel);
+    network.on("dragEnd", updateZoomLabel);
 
     const expandedRoot  = new Set();
     const openedPersons = new Set();
@@ -424,7 +472,6 @@
       if(MODE==="ANTES"){
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
-        // LÍDER abre/cierra
         if(LEADER_NODE_ID && id === LEADER_NODE_ID){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgBefore.roles)
                                      : (addRoles(teamRoot, orgBefore.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgBefore.roles));
@@ -470,10 +517,14 @@
     document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAPBefore(); else mountTeamBefore(); };
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAPAfter();  else mountTeamAfter();  };
 
+    // zoom bar
+    document.getElementById("zoomIn").onclick    = zoomIn;
+    document.getElementById("zoomOut").onclick   = zoomOut;
+    document.getElementById("zoomReset").onclick = zoomReset;
+    document.getElementById("zoomFit").onclick   = zoomFit;
+
     // arranque
     loadTeam(currentKey);
   </script>
 </body>
 </html>
-
-
