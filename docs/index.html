@@ -6,16 +6,24 @@
   <title>Organigramas OAP – Antes / Después</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
+    :root{
+      --accent:#16a34a;     /* se sobreescribe con clases de modo */
+      --bg-tint:#f2fbf4;    /* verde muy suave */
+    }
     body{font-family:system-ui,Arial,sans-serif;margin:0}
     header{padding:16px 20px;border-bottom:1px solid #eee}
     h1{font-size:1.25rem;margin:0 0 6px}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .hint{color:#555}
     select,button{padding:8px 10px;border:1px solid #ddd;background:#fafafa;border-radius:8px;cursor:pointer}
-    #network{height:80vh;border-top:1px solid #eee}
+    #network{height:80vh;border-top:1px solid #eee;background:var(--bg-tint);transition:background .2s ease}
+
+    /* Temas por modo */
+    body.mode-antes{ --accent:#2b6cb0; --bg-tint:#f3f8ff; }  /* azul suave */
+    body.mode-despues{ --accent:#16a34a; --bg-tint:#f2fbf4; } /* verde suave */
   </style>
 </head>
-<body>
+<body class="mode-despues">
   <header>
     <div class="row">
       <h1 id="title">Organigramas – OAP</h1>
@@ -36,7 +44,6 @@
 
   <script>
     /* ========= PARÁMETROS ========= */
-    // Claves de JSON que tienes en /docs/data/
     const TEAMS = ["oap", "4p", "gestion_conocimiento", "administrativo", "ti", "mipg"];
     const TEAM_LABELS = {
       oap: "OAP General",
@@ -74,17 +81,37 @@
     const openedSubroles = new Set();
 
     /* ========= HELPERS ========= */
+    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#16a34a';
+
+    function cleanLabel(lbl){
+      if(!lbl) return '';
+      return lbl
+        .replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'')
+        .replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'')
+        .trim();
+    }
+
+    function applyTheme(){
+      if (MODE === "ANTES"){
+        document.body.classList.add('mode-antes');
+        document.body.classList.remove('mode-despues');
+      } else {
+        document.body.classList.add('mode-despues');
+        document.body.classList.remove('mode-antes');
+      }
+    }
+
     function clearAll(){
       nodes.clear(); edges.clear();
       expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
     }
     function mountRoot(root){
-      nodes.add({ id: root.id, label: root.label, shape:"box", level: LVL_ROOT });
+      nodes.add({ id: root.id, label: cleanLabel(root.label), shape:"box", level: LVL_ROOT, color:{ border: accent() } });
     }
     function addRoles(root, roles){
       roles.forEach(r=>{
         if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box", level: LVL_ROLE });
-        if(!edges.get(`${root.id}-${r.id}`)) edges.add({ id:`${root.id}-${r.id}`, from:root.id, to:r.id });
+        if(!edges.get(`${root.id}-${r.id}`)) edges.add({ id:`${root.id}-${r.id}`, from:root.id, to:r.id, color:{ color: accent() } });
       });
       expandedRoot.add(root.id);
     }
@@ -103,7 +130,7 @@
       else addRoles(root, roles);
     }
 
-    // Mostrar/ocultar persona (sin "(por definir)"; lila si planta=true)
+    // Mostrar/ocultar persona (sin "(por definir)"; lila si planta=true) en nivel 2
     function togglePerson(role){
       if (!role.person || !role.person.trim()) return; // no crear nodo si no hay persona
       const pid = `${role.id}_P`;
@@ -114,7 +141,7 @@
         const nodeOptions = { id: pid, label: role.person.trim(), shape: "box", font: { italics: true }, level: LVL_CHILD };
         if (role.planta) nodeOptions.color = { background: "#e9e0ff", border: "#7a5cff" };
         nodes.add(nodeOptions);
-        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
+        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid, color:{ color: accent() } });
         openedPersons.add(pid);
       }
     }
@@ -127,7 +154,7 @@
       }else{
         arr.forEach(sr=>{
           if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", level: LVL_CHILD });
-          if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+          if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id, color:{ color: accent() } });
         });
         openedSubroles.add(roleId);
       }
@@ -141,12 +168,14 @@
 
     /* ========= MONTAJES ========= */
     function mountBefore(){
+      MODE = "ANTES"; applyTheme();
       clearAll();
       mountRoot(orgBefore);
       addRoles(orgBefore, orgBefore.roles);
       updateButtons();
     }
     function mountAfter(){
+      MODE = "DESPUES"; applyTheme();
       clearAll();
       mountRoot(orgAfter);
       addRoles(orgAfter, orgAfter.roles);
@@ -206,9 +235,10 @@
         document.getElementById("title").textContent =
           `Organigrama – ${nice}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
 
-        MODE = "DESPUES";
         currentKey = key;
         document.getElementById("teamSelect").value = key;
+
+        // Vista por defecto
         mountAfter();
       }catch(err){
         console.error(err);
@@ -250,13 +280,15 @@
     sel.addEventListener("change", e => loadTeam(e.target.value));
 
     // Botones
-    document.getElementById("btnAntes").onclick   = ()=>{ MODE="ANTES"; mountBefore(); };
-    document.getElementById("btnDespues").onclick = ()=>{ MODE="DESPUES"; mountAfter(); };
+    document.getElementById("btnAntes").onclick   = ()=> mountBefore();
+    document.getElementById("btnDespues").onclick = ()=> mountAfter();
 
-    // Inicial: OAP base
+    // Inicial: OAP base (DESPUÉS)
     loadTeam(currentKey);
   </script>
 </body>
 </html>
+
+
 
 
