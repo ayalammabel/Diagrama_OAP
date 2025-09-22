@@ -145,22 +145,59 @@
       scheduleReflow();
     }
 
-    // —— PERSONAS (click) —— (👇 OJO: un nivel MÁS profundo)
-    function togglePerson(role, parentLevel){
-      if (!role.person || !role.person.trim()) return; // si no hay persona, no muestres nada
-      const pid = `${role.id}_P`;
-      const level = (parentLevel ?? LV_CHILD) + 1;
-      if(openedPersons.has(pid)){
-        try{nodes.remove(pid);}catch{}; try{edges.remove(`${role.id}-${pid}`);}catch{}; openedPersons.delete(pid);
+    // — SUBROLES — SIEMPRE se ve el cuadro del ROL y debajo la PERSONA (si hay)
+    function toggleSubroles(parentRoleId, arr, parentLevel){
+      if(!arr || !arr.length) return;
+    
+      if(openedSubroles.has(parentRoleId)){
+        // cerrar: quitamos subroles y sus personas
+        arr.forEach(sr=>{
+          const rid = sr.id;            // nodo del ROL
+          const pid = `${rid}_P`;       // nodo de la PERSONA (hijo del ROL)
+          try{ edges.remove(`${parentRoleId}-${rid}`);}catch{}   // edge rolPadre -> subrol
+          try{ nodes.remove(rid);}catch{}
+          try{ edges.remove(`${rid}-${pid}`);}catch{}            // edge subrol -> persona
+          try{ nodes.remove(pid);}catch{}
+        });
+        openedSubroles.delete(parentRoleId);
       }else{
-        const node = { id:pid, label:role.person.trim(), shape:"box", level, font:{ italics:true } };
-        if(role.planta) node.color = { background:"#efe9ff", border:"#7a5cff" };
-        nodes.add(node);
-        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
-        openedPersons.add(pid);
+        // abrir: dibujamos SIEMPRE el subrol (cuadro de rol)
+        const levelRole   = (parentLevel ?? LV_CHILD) + 1; // nivel del cuadro del rol
+        const levelPerson = levelRole + 1;                 // nivel de la persona
+    
+        arr.forEach(sr=>{
+          // puedes mantener este filtro si tienes etiquetas tipo "(ver analistas)"
+          if(/^\s*\(.*\)\s*$/.test(sr.name)) return;
+    
+          // subrol (rol específico)
+          if(!nodes.get(sr.id)){
+            nodes.add({ id: sr.id, label: sr.name, shape:"box", level: levelRole });
+          }
+          if(!edges.get(`${parentRoleId}-${sr.id}`)){
+            edges.add({ id: `${parentRoleId}-${sr.id}`, from: parentRoleId, to: sr.id });
+          }
+    
+          // persona (si hay). Si no hay, mostramos "Nuevo perfil"
+          const personLabel = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
+          if(personLabel){
+            const pid = `${sr.id}_P`;
+            if(!nodes.get(pid)){
+              const nodeP = { id: pid, label: personLabel, shape:"box", level: levelPerson, font:{ italics:true } };
+              if(sr.planta) nodeP.color = { background:"#efe9ff", border:"#7a5cff" };
+              nodes.add(nodeP);
+            }
+            if(!edges.get(`${sr.id}-${pid}`)){
+              edges.add({ id: `${sr.id}-${pid}`, from: sr.id, to: pid });
+            }
+          }
+        });
+    
+        openedSubroles.add(parentRoleId);
       }
-      scheduleReflow();
+    
+      scheduleReflow(); // mantener el espaciado dinámico
     }
+
 
     // heurísticas para ignorar rótulos de ayuda
     const isNoiseLabel = (s="") => /^\s*\(.*\)\s*$/.test(s) || /ver\s+analistas|varios\s+apoyos?/i.test(s);
@@ -195,15 +232,20 @@
       }
       scheduleReflow();
     }
-    function closeSubroles(roleId){
-      const arr = orgAfter?.subroles?.[roleId];
-      if(!arr || !openedSubroles.has(roleId)) return;
+    function closeSubroles(parentRoleId){
+      const arr = orgAfter?.subroles?.[parentRoleId];
+      if(!arr || !openedSubroles.has(parentRoleId)) return;
+    
       arr.forEach(sr=>{
-        const rid = sr.id, pid = `${rid}_P`;
-        try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
-        try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+        const rid = sr.id;
+        const pid = `${rid}_P`;
+        try{ edges.remove(`${parentRoleId}-${rid}`);}catch{}
+        try{ nodes.remove(rid);}catch{}
+        try{ edges.remove(`${rid}-${pid}`);}catch{}
+        try{ nodes.remove(pid);}catch{}
       });
-      openedSubroles.delete(roleId);
+    
+      openedSubroles.delete(parentRoleId);
       scheduleReflow();
     }
 
