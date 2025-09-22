@@ -1,2 +1,0 @@
-# DBA
-**Responsable:** Giovanny Benítez
