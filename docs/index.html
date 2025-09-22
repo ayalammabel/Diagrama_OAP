@@ -7,34 +7,14 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root{ --accent:#16a34a; }
-    *{ box-sizing: border-box; }
     body{font-family:system-ui,Arial,sans-serif;margin:0;background:#fff}
-    header{padding:12px 16px;border-bottom:1px solid #eee;background:#fff;position:sticky;top:0;z-index:10}
-    h1{font-size:1.05rem;margin:0 0 6px}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .hint{color:#555;font-size:.9rem}
-    select,button{padding:7px 10px;border:1px solid #d6d9de;background:#fafafa;border-radius:8px;cursor:pointer}
+    header{padding:16px 20px;border-bottom:1px solid #eee;background:#fff;position:sticky;top:0;z-index:10}
+    h1{font-size:1.25rem;margin:0 0 6px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .hint{color:#555}
+    select,button{padding:8px 10px;border:1px solid #d6d9de;background:#fafafa;border-radius:8px;cursor:pointer}
     button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
     #network{height:80vh}
-
-    /* Top-right zoom toolbar */
-    .zoombar{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .zoombar .chip{min-width:64px;text-align:center;background:#f4f6f8;border:1px solid #d6d9de;border-radius:8px;padding:6px 10px}
-    .zoombar button{min-width:40px}
-
-    /* Floating nav pad (bottom-left) */
-    .navpad{
-      position:fixed;left:16px;bottom:16px;z-index:11;
-      display:grid;grid-template-columns:40px 40px 40px;grid-template-rows:40px 40px 40px;
-      gap:8px;align-items:center;justify-items:center;
-    }
-    .navpad button{
-      width:40px;height:40px;border-radius:999px;border:1px solid #bcd7c6;background:#fff;
-      color:#16a34a;font-weight:600;font-size:18px;line-height:1;cursor:pointer;
-      box-shadow:0 1px 2px rgba(0,0,0,.06);
-    }
-    .navpad button:active{transform:scale(.96)}
-    .navpad .blank{opacity:0;pointer-events:none}
 
     body.mode-antes{ --accent:#2b6cb0; }
     body.mode-despues{ --accent:#16a34a; }
@@ -44,23 +24,13 @@
   <header>
     <div class="row">
       <h1 id="title">Organigramas – OAP</h1>
-
-      <label>Equipo:
+      <label>
+        Equipo:
         <select id="teamSelect"></select>
       </label>
-
       <button id="btnAntes">Ver ANTES</button>
       <button id="btnDespues" class="active">Ver DESPUÉS</button>
-
-      <!-- Zoom toolbar -->
-      <div class="zoombar">
-        <button id="zoomOut">−</button>
-        <button id="btnFit">Ajustar</button>
-        <span id="zoomPct" class="chip">100%</span>
-        <button id="zoomIn">＋</button>
-      </div>
     </div>
-
     <div class="hint">
       Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles).<br/>
       En <b>OAP</b>, clic en un equipo abre su subdiagrama; dentro del equipo, la <b>Jefa OAP</b> queda fija arriba.
@@ -68,19 +38,6 @@
   </header>
 
   <div id="network"></div>
-
-  <!-- Floating pan controls -->
-  <div class="navpad" aria-hidden="true">
-    <button class="blank" tabindex="-1">·</button>
-    <button id="panUp" title="Arriba">↑</button>
-    <button class="blank" tabindex="-1">·</button>
-    <button id="panLeft" title="Izquierda">←</button>
-    <button id="panCenter" title="Centrar">•</button>
-    <button id="panRight" title="Derecha">→</button>
-    <button class="blank" tabindex="-1">·</button>
-    <button id="panDown" title="Abajo">↓</button>
-    <button class="blank" tabindex="-1">·</button>
-  </div>
 
   <script>
     /********** Config **********/
@@ -96,7 +53,7 @@
 
     // info jefa
     let JEFA_LABEL = "Jefa OAP";
-    let JEFA_PERSON = ""; // ej. "Paola Rojas"
+    let JEFA_PERSON = "";
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
 
@@ -114,50 +71,15 @@
     const EDGE_COLOR = '#cbd5e1';
     const options = {
       layout: { hierarchical: {
-        enabled:true,
-        direction:"UD",
-        levelSeparation:120,
-        nodeSpacing:200,          // separación horizontal mínima entre hermanos
-        parentCentralization:true,
-        blockShifting:true,
-        edgeMinimization:true,
-        sortMethod:"hubsize"
+        enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180,
+        parentCentralization:true, blockShifting:true, edgeMinimization:true, sortMethod:"hubsize"
       }},
-      physics:false,              // SIN física para que no "bailen" los nodos
-      interaction:{
-        hover:true, selectable:true,
-        dragView:true, zoomView:true
-      },
+      physics:false,
       nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
-      edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } }
+      edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } },
+      interaction:{ hover:true, selectable:true }
     };
     const network = new vis.Network(container, { nodes, edges }, options);
-
-    // zoom helpers
-    const $pct = document.getElementById('zoomPct');
-    const updateZoomPct = () => { $pct.textContent = `${Math.round(network.getScale()*100)}%`; };
-
-    const zoomBy = (factor) => {
-      const scale = network.getScale();
-      const newScale = Math.max(0.1, Math.min(3, scale * factor));
-      const pos = network.getViewPosition();
-      network.moveTo({ position: pos, scale: newScale, animation:{ duration:220, easingFunction:"easeInOutQuad" } });
-    };
-    const fitAll = () => {
-      network.fit({ animation:{ duration:250, easingFunction:"easeInOutQuad" } });
-      setTimeout(updateZoomPct, 260);
-    };
-    const panBy = (dx, dy) => {
-      // dx/dy en píxeles de pantalla -> convertir a coordenadas del grafo
-      const scale = network.getScale();
-      const pos = network.getViewPosition();
-      const nx = pos.x + dx / scale;
-      const ny = pos.y + dy / scale;
-      network.moveTo({ position:{ x:nx, y:ny }, scale, animation:{ duration:180 } });
-    };
-
-    network.on("zoom", updateZoomPct);
-    network.on("dragEnd", updateZoomPct);
 
     const expandedRoot  = new Set();
     const openedPersons = new Set();
@@ -228,33 +150,32 @@
       }
     }
 
-    // etiquetas a ignorar / persona-like
-    const isNoiseLabel = (s="") => /^\s*\(.*\)\s*$/.test(s) || /ver\s+analistas|varios\s+apoyos?/i.test(s);
-    const isPersonLike = (sr) => (sr?.person && sr.person.trim()) || /nuevo\s+perfil|perfil\s+nuevo/i.test(sr?.name||"");
-
-    // —— SUBROLES —— (nivel +1 respecto al rol)
+    // —— SUBROLES: siempre mostramos ROL + PERSONA ——
     function toggleSubroles(roleId, arr, parentLevel){
       if(!arr || !arr.length) return;
       if(openedSubroles.has(roleId)){
         arr.forEach(sr=>{
           const rid = sr.id, pid = `${rid}_P`;
           try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
-          try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+          try{nodes.remove(pid);}catch{}; try{edges.remove(`${rid}-${pid}`);}catch{}
         });
         openedSubroles.delete(roleId);
       }else{
-        const level = (parentLevel ?? LV_CHILD) + 1;
+        const level = (parentLevel ?? LV_CHILD) + 1; // subrol un nivel más abajo del equipo
         arr.forEach(sr=>{
-          if(isNoiseLabel(sr.name)) return;
-          if(isPersonLike(sr)){
-            const label = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
-            const pid = `${sr.id}_P`;
-            if(!nodes.get(pid)) nodes.add({ id:pid, label, shape:"box", level, font:{ italics:true } });
-            if(!edges.get(`${roleId}-${pid}`)) edges.add({ id:`${roleId}-${pid}`, from:roleId, to:pid });
-          }else{
-            if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box", level });
-            if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+          const rid = sr.id;
+          // ROL
+          if(!nodes.get(rid)) nodes.add({ id:rid, label:sr.name, shape:"box", level });
+          if(!edges.get(`${roleId}-${rid}`)) edges.add({ id:`${roleId}-${rid}`, from:roleId, to:rid });
+          // PERSONA (o “Nuevo perfil” por defecto)
+          const personLabel = (sr.person && sr.person.trim()) ? sr.person.trim() : "Nuevo perfil";
+          const pid = `${rid}_P`;
+          if(!nodes.get(pid)){
+            const pNode = { id:pid, label:personLabel, shape:"box", level:level+1, font:{ italics:true } };
+            if(sr.planta) pNode.color = { background:"#efe9ff", border:"#7a5cff" };
+            nodes.add(pNode);
           }
+          if(!edges.get(`${rid}-${pid}`)) edges.add({ id:`${rid}-${pid}`, from:rid, to:pid });
         });
         openedSubroles.add(roleId);
       }
@@ -265,12 +186,12 @@
       arr.forEach(sr=>{
         const rid = sr.id, pid = `${rid}_P`;
         try{nodes.remove(rid);}catch{}; try{edges.remove(`${roleId}-${rid}`);}catch{}
-        try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
+        try{nodes.remove(pid);}catch{}; try{edges.remove(`${rid}-${pid}`);}catch{}
       });
       openedSubroles.delete(roleId);
     }
 
-    // —— re-cablear bajo el LÍDER (si existe)
+    // —— re-cablear bajo el LÍDER (si existe) ——
     function rewireUnderLeaderIfAny(rootId, roles){
       let leaderId = LEADER_NODE_ID;
       if(!leaderId){
@@ -302,7 +223,7 @@
       mountRootNode(orgBefore.id, JEFA_LABEL, LV_ROOT);
       addRoles(orgBefore.id, orgBefore.roles, LV_ROLE);
       updateCountsUI();
-      fitAll();
+      network.fit({animation:{duration:250}});
       enrichCountsForOAP(orgAfter.roles);
     }
     function mountOAPAfter(){
@@ -317,7 +238,7 @@
       mountRootNode(orgAfter.id, JEFA_LABEL, LV_ROOT);
       addRoles(orgAfter.id, orgAfter.roles, LV_ROLE);
       updateCountsUI();
-      fitAll();
+      network.fit({animation:{duration:250}});
       enrichCountsForOAP(orgAfter.roles);
     }
 
@@ -334,7 +255,7 @@
       addRoles(TEAM_ROOT_ID, orgBefore.roles, LV_ROLE);
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgBefore.roles);
       updateCountsUI();
-      fitAll();
+      network.fit({animation:{duration:250}});
     }
     function mountTeamAfter(){
       MODE="DESPUES"; applyTheme();
@@ -349,7 +270,7 @@
       addRoles(TEAM_ROOT_ID, orgAfter.roles, LV_ROLE);
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgAfter.roles);
       updateCountsUI();
-      fitAll();
+      network.fit({animation:{duration:250}});
     }
 
     function updateCountsUI(){
@@ -395,7 +316,6 @@
           }
         }
 
-        // líder forzado por JSON (opcional)
         LEADER_NODE_ID = null;
         if(data.meta?.leaderId) LEADER_NODE_ID = `${prefix}_${data.meta.leaderId}`;
 
@@ -421,7 +341,7 @@
       }
     }
 
-    /********** interacción del grafo **********/
+    /********** interacción **********/
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -458,10 +378,13 @@
       if(MODE==="ANTES"){
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
-        // Clic en LÍDER abre/cierra igual que el nodo del equipo
         if(LEADER_NODE_ID && id === LEADER_NODE_ID){
-          if(expandedRoot.has(teamRoot)) removeRoles(teamRoot, orgBefore.roles);
-          else { addRoles(teamRoot, orgBefore.roles, LV_ROLE); rewireUnderLeaderIfAny(teamRoot, orgBefore.roles); }
+          if(expandedRoot.has(teamRoot)){
+            removeRoles(teamRoot, orgBefore.roles);
+          }else{
+            addRoles(teamRoot, orgBefore.roles, LV_ROLE);
+            rewireUnderLeaderIfAny(teamRoot, orgBefore.roles);
+          }
           return;
         }
 
@@ -476,8 +399,12 @@
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
 
         if(LEADER_NODE_ID && id === LEADER_NODE_ID){
-          if(expandedRoot.has(teamRoot)) removeRoles(teamRoot, orgAfter.roles);
-          else { addRoles(teamRoot, orgAfter.roles, LV_ROLE); rewireUnderLeaderIfAny(teamRoot, orgAfter.roles); }
+          if(expandedRoot.has(teamRoot)){
+            removeRoles(teamRoot, orgAfter.roles);
+          }else{
+            addRoles(teamRoot, orgAfter.roles, LV_ROLE);
+            rewireUnderLeaderIfAny(teamRoot, orgAfter.roles);
+          }
           return;
         }
 
@@ -495,40 +422,16 @@
       }
     });
 
-    /********** controles UI **********/
-    // Selector y botones de modo
+    // selector & botones
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = currentKey;
     sel.addEventListener("change", e=>loadTeam(e.target.value));
-    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAPBefore(); else mountTeamBefore(); fitAll(); };
-    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAPAfter();  else mountTeamAfter();  fitAll(); };
 
-    // Zoom toolbar listeners
-    document.getElementById("zoomIn").onclick  = ()=>{ zoomBy(1.15); updateZoomPct(); };
-    document.getElementById("zoomOut").onclick = ()=>{ zoomBy(1/1.15); updateZoomPct(); };
-    document.getElementById("btnFit").onclick  = ()=> fitAll();
+    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAPBefore(); else mountTeamBefore(); };
+    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAPAfter();  else mountTeamAfter();  };
 
-    // Nav pad (pan)
-    const STEP = () => Math.max(120, Math.round(container.clientWidth * 0.10)); // 10% del ancho
-    document.getElementById("panUp").onclick    = ()=> panBy(0, -STEP());
-    document.getElementById("panDown").onclick  = ()=> panBy(0,  STEP());
-    document.getElementById("panLeft").onclick  = ()=> panBy(-STEP(), 0);
-    document.getElementById("panRight").onclick = ()=> panBy( STEP(), 0);
-    document.getElementById("panCenter").onclick= ()=> fitAll();
-
-    // Atajos de teclado: + / - , flechas
-    window.addEventListener('keydown',(e)=>{
-      if (['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
-      if (e.key === '+' || e.key === '='){ zoomBy(1.15); updateZoomPct(); }
-      if (e.key === '-' || e.key === '_'){ zoomBy(1/1.15); updateZoomPct(); }
-      if (e.key === 'ArrowUp'){ panBy(0, -STEP()); }
-      if (e.key === 'ArrowDown'){ panBy(0, STEP()); }
-      if (e.key === 'ArrowLeft'){ panBy(-STEP(), 0); }
-      if (e.key === 'ArrowRight'){ panBy(STEP(), 0); }
-    });
-
-    // Inicio
+    // arranque
     loadTeam(currentKey);
   </script>
 </body>
