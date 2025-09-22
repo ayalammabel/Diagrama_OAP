@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Organigramas OAP – Antes / Después</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;margin:0}
+    header{padding:16px 20px;border-bottom:1px solid #eee}
+    h1{font-size:1.25rem;margin:0 0 6px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .hint{color:#555}
+    select,button{padding:8px 10px;border:1px solid #ddd;background:#fafafa;border-radius:8px;cursor:pointer}
+    #network{height:80vh;border-top:1px solid #eee}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <h1 id="title">Organigramas – OAP</h1>
+      <label>
+        Equipo:
+        <select id="teamSelect">
+          <!-- Agrega tus equipos aquí -->
+          <option value="4p" selected>4P</option>
+        </select>
+      </label>
+      <button id="btnAntes">Ver ANTES</button>
+      <button id="btnDespues">Ver DESPUÉS</button>
+    </div>
+    <div class="hint">Clic en la **raíz** para plegar/desplegar roles. Clic en un **rol** para ver/ocultar la persona (y subroles, si existen).</div>
+  </header>
+
+  <div id="network"></div>
+
+  <script>
+    /* ========= PARÁMETROS ========= */
+    const TEAMS = ["4p"]; // añade aquí las claves de tus equipos, p.ej. ["4p","simisional","presupuesto"]
+
+    /* ========= ESTADO DE LA APP ========= */
+    let orgBefore = null;   // { id, label, roles: [...] }
+    let orgAfter  = null;   // { id, label, roles: [...], subroles: { roleId: [...] } }
+    let MODE = "DESPUES";   // "ANTES" | "DESPUES"
+    let currentKey = "4p";
+
+    /* ========= VIS-NETWORK ========= */
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
+    const container = document.getElementById("network");
+    const options = {
+      layout: { hierarchical: { enabled:true, direction:"UD", levelSeparation:120, nodeSpacing:180 } },
+      physics:false,
+      nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#777" } },
+      interaction:{ hover:true, selectable:true }
+    };
+    const network = new vis.Network(container, { nodes, edges }, options);
+
+    // conjuntos para recordar qué está abierto
+    const expandedRoot  = new Set();
+    const openedPersons = new Set();
+    const openedSubroles = new Set();
+
+    /* ========= HELPERS ========= */
+    function clearAll(){
+      nodes.clear(); edges.clear();
+      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
+    }
+    function mountRoot(root){
+      nodes.add({ id: root.id, label: root.label, shape:"box" });
+    }
+    function addRoles(root, roles){
+      roles.forEach(r=>{
+        if(!nodes.get(r.id)) nodes.add({ id:r.id, label:r.name, shape:"box" });
+        if(!edges.get(`${root.id}-${r.id}`)) edges.add({ id:`${root.id}-${r.id}`, from:root.id, to:r.id });
+      });
+      expandedRoot.add(root.id);
+    }
+    function removeRoles(root, roles){
+      roles.forEach(r=>{
+        const pid = `${r.id}_P`;
+        if(openedPersons.has(pid)){ try{nodes.remove(pid); edges.remove(`${r.id}-${pid}`);}catch{} openedPersons.delete(pid); }
+        closeSubroles(r.id);
+        try{ edges.remove(`${root.id}-${r.id}`);}catch{}
+        try{ nodes.remove(r.id);}catch{}
+      });
+      expandedRoot.delete(root.id);
+    }
+    function toggleRoot(root, roles){
+      if(expandedRoot.has(root.id)) removeRoles(root, roles);
+      else addRoles(root, roles);
+    }
+    function togglePerson(role){
+      const pid = `${role.id}_P`;
+      if(openedPersons.has(pid)){
+        try{nodes.remove(pid); edges.remove(`${role.id}-${pid}`);}catch{}
+        openedPersons.delete(pid);
+      }else{
+        const label = (role.person && role.person.trim()) ? role.person : "(por definir)";
+        nodes.add({ id:pid, label, shape:"box", font:{ italics:true } });
+        edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
+        openedPersons.add(pid);
+      }
+    }
+    function toggleSubroles(roleId, arr){
+      if(!arr || !arr.length) return;
+      if(openedSubroles.has(roleId)){
+        arr.forEach(sr=>{ try{nodes.remove(sr.id); edges.remove(`${roleId}-${sr.id}`);}catch{} });
+        openedSubroles.delete(roleId);
+      }else{
+        arr.forEach(sr=>{
+          if(!nodes.get(sr.id)) nodes.add({ id:sr.id, label:sr.name, shape:"box" });
+          if(!edges.get(`${roleId}-${sr.id}`)) edges.add({ id:`${roleId}-${sr.id}`, from:roleId, to:sr.id });
+        });
+        openedSubroles.add(roleId);
+      }
+    }
+    function closeSubroles(roleId){
+      const arr = orgAfter?.subroles?.[roleId];
+      if(!arr || !openedSubroles.has(roleId)) return;
+      arr.forEach(sr=>{ try{nodes.remove(sr.id); edges.remove(`${roleId}-${sr.id}`);}catch{} });
+      openedSubroles.delete(roleId);
+    }
+
+    /* ========= MONTAJES ========= */
+    function mountBefore(){
+      clearAll();
+      mountRoot(orgBefore);
+      addRoles(orgBefore, orgBefore.roles);
+      updateButtons();
+    }
+    function mountAfter(){
+      clearAll();
+      mountRoot(orgAfter);
+      addRoles(orgAfter, orgAfter.roles);
+      updateButtons();
+    }
+    function updateButtons(){
+      const btnAntes = document.getElementById("btnAntes");
+      const btnDesp = document.getElementById("btnDespues");
+      btnAntes.textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
+      btnDesp.textContent   = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
+    }
+
+    /* ========= CARGA DE EQUIPOS (JSON) ========= */
+    async function loadTeam(key){
+      try{
+        const res = await fetch(`data/${key}.json`);
+        const data = await res.json();
+
+        // Normaliza con prefijos para evitar colisiones de IDs entre equipos
+        const prefix = key.toUpperCase();
+        orgBefore = {
+          id: `ROOT_BEFORE_${prefix}`,
+          label: data.before.label || `${data.meta?.equipo || key} – ANTES`,
+          roles: (data.before.roles || []).map(r => ({
+            id: `${prefix}_${r.id}`,
+            name: r.name,
+            person: r.person || ""
+          }))
+        };
+        const sub = {};
+        if (data.after.subroles){
+          for (const roleId in data.after.subroles){
+            sub[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr=>({
+              id: `${prefix}_${sr.id}`, name: sr.name, person: sr.person || ""
+            }));
+          }
+        }
+        orgAfter = {
+          id: `ROOT_AFTER_${prefix}`,
+          label: data.after.label || `${data.meta?.equipo || key} – DESPUÉS`,
+          roles: (data.after.roles || []).map(r => ({
+            id: `${prefix}_${r.id}`,
+            name: r.name,
+            person: r.person || ""
+          })),
+          subroles: sub
+        };
+
+        // Título
+        document.getElementById("title").textContent =
+          `Organigrama – ${data.meta?.equipo || key}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
+
+        // Vista por defecto
+        MODE = "DESPUES";
+        mountAfter();
+      }catch(err){
+        console.error(err);
+        alert(`No pude cargar data/${key}.json`);
+      }
+    }
+
+    /* ========= INTERACCIÓN ========= */
+    network.on("click", (p)=>{
+      if(!p.nodes.length) return;
+      const id = p.nodes[0];
+
+      if(MODE==="ANTES"){
+        if(id===orgBefore.id) return toggleRoot(orgBefore, orgBefore.roles);
+        const role = orgBefore.roles.find(r=>r.id===id);
+        if(role) return togglePerson(role);
+      } else {
+        if(id===orgAfter.id) return toggleRoot(orgAfter, orgAfter.roles);
+        const role = orgAfter.roles.find(r=>r.id===id);
+        if(role){
+          togglePerson(role);
+          toggleSubroles(role.id, orgAfter.subroles?.[role.id]);
+        }
+      }
+    });
+
+    // Select equipo
+    const sel = document.getElementById("teamSelect");
+    // poblar selector (por si editas TEAMS arriba)
+    sel.innerHTML = TEAMS.map(k => `<option value="${k}">${k.toUpperCase()}</option>`).join("");
+    sel.value = currentKey;
+    sel.addEventListener("change", e => {
+      currentKey = e.target.value;
+      loadTeam(currentKey);
+    });
+
+    // Botones
+    document.getElementById("btnAntes").onclick   = ()=>{ MODE="ANTES"; mountBefore(); };
+    document.getElementById("btnDespues").onclick = ()=>{ MODE="DESPUES"; mountAfter(); };
+
+    // Inicial
+    loadTeam(currentKey);
+  </script>
+</body>
+</html>
