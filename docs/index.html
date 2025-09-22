@@ -381,6 +381,18 @@
       const teamRoot = TEAM_ROOT_ID;
       if(MODE==="ANTES"){
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
+
+        // 👇 Clic en LÍDER abre/cierra igual que el nodo del equipo
+        if(LEADER_NODE_ID && id === LEADER_NODE_ID){
+          if(expandedRoot.has(teamRoot)){
+            removeRoles(teamRoot, orgBefore.roles);
+          }else{
+            addRoles(teamRoot, orgBefore.roles, LV_ROLE);
+            rewireUnderLeaderIfAny(teamRoot, orgBefore.roles);
+          }
+          return;
+        }
+
         if(id===teamRoot){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgBefore.roles)
                                      : (addRoles(teamRoot, orgBefore.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgBefore.roles));
@@ -390,6 +402,18 @@
         if(role){ togglePerson(role, LV_CHILD); return; }
       }else{
         if(id===STICKY_ID){ togglePerson({ id:STICKY_ID, person:JEFA_PERSON, planta:true }, LV_ROOT); return; }
+
+        // 👇 Clic en LÍDER abre/cierra igual que el nodo del equipo
+        if(LEADER_NODE_ID && id === LEADER_NODE_ID){
+          if(expandedRoot.has(teamRoot)){
+            removeRoles(teamRoot, orgAfter.roles);
+          }else{
+            addRoles(teamRoot, orgAfter.roles, LV_ROLE);
+            rewireUnderLeaderIfAny(teamRoot, orgAfter.roles);
+          }
+          return;
+        }
+
         if(id===teamRoot){
           expandedRoot.has(teamRoot) ? removeRoles(teamRoot, orgAfter.roles)
                                      : (addRoles(teamRoot, orgAfter.roles, LV_ROLE), rewireUnderLeaderIfAny(teamRoot, orgAfter.roles));
@@ -418,6 +442,5 @@
   </script>
 </body>
 </html>
-
 
 
