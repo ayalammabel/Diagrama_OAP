@@ -4,7 +4,6 @@
     "titulo": "Planes, Políticas, Proyectos y Presupuesto",
     "leaderId": "A_LIDER"
   },
-
   "before": {
     "label": "4P (6 roles) – ANTES",
     "roles": [
@@ -16,7 +15,6 @@
       { "id": "B_PRESUP",   "name": "Presupuesto",         "person": "Michael Gil" }
     ]
   },
-
   "after": {
     "label": "4P – DESPUÉS",
     "roles": [
@@ -26,7 +24,6 @@
       { "id": "A_PRESUP",  "name": "Presupuesto",            "person": "" },
       { "id": "A_POLITICA","name": "Política Pública",       "person": "" }
     ],
-
     "subroles": {
       "A_PROYINV": [
         { "id": "SR_PI_5",        "name": "Analista de Proyectos (5 Proyectos)", "person": "" },
@@ -35,11 +32,10 @@
         { "id": "SR_PI_AP4_YULY", "name": "Analista de Proyectos (4 Proyectos)", "person": "Yuly Sánchez" }
       ],
 
+      /* 👇 Solo personas directas bajo Gerencia 8225 */
       "A_GER8225": [
-        { "id": "SR_GER_LIDER", "name": "Líder financiero / Estudio de mercado", "person": "" },
-        { "id": "SR_GER_APOYO", "name": "Apoyo Técnico",                          "person": "" },
-        { "id": "SR_GER_MC",    "name": "Nuevo perfil",                           "person": "MC" },
-        { "id": "SR_GER_DIEGO", "name": "Nuevo perfil",                           "person": "Diego" }
+        { "id": "SR_GER_MC",    "name": "Nuevo perfil", "person": "Nuevo perfil (MC)" },
+        { "id": "SR_GER_DIEGO", "name": "Nuevo perfil", "person": "Nuevo perfil (Diego)" }
       ],
 
       "A_PRESUP": [
