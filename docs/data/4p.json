@@ -32,7 +32,6 @@
         { "id": "SR_PI_AP4_YULY", "name": "Analista de Proyectos (4 Proyectos)", "person": "Yuly Sánchez" }
       ],
 
-      /* 👇 Solo personas directas bajo Gerencia 8225 */
       "A_GER8225": [
         { "id": "SR_GER_MC",    "name": "Nuevo perfil", "person": "Nuevo perfil (MC)" },
         { "id": "SR_GER_DIEGO", "name": "Nuevo perfil", "person": "Nuevo perfil (Diego)" }
