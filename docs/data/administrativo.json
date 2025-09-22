@@ -1,0 +1,30 @@
+{
+  "meta": { "equipo": "Administrativo", "titulo": "" },
+
+  "before": {
+    "label": "Administrativo (8 roles) – ANTES",
+    "roles": [
+      { "id": "B_AUXADM",  "name": "Auxiliar Administrativo",      "person": "Adelaida Rojas" },
+      { "id": "B_TECADM",  "name": "Técnico Administrativo",        "person": "Jorge Vidal" },
+      { "id": "B_JURCON",  "name": "Jurídica contractual",          "person": "Paola Moreno" },
+      { "id": "B_APOSUP",  "name": "Apoyo a la supervisión",        "person": "Camila López" },
+      { "id": "B_LIDERPI", "name": "Líder técnico PI8225",          "person": "Diego Grondoa" },
+      { "id": "B_DIG1",    "name": "Digitadora",                    "person": "Daniela Vera" },
+      { "id": "B_DIG2",    "name": "Digitadora",                    "person": "Carol Gaona" },
+      { "id": "B_DIG3",    "name": "Digitadora",                    "person": "Valentina Echeverry" }
+    ]
+  },
+
+  "after": {
+    "label": "Administrativo (6 roles) – DESPUÉS",
+    "roles": [
+      { "id": "A_AUXADM",  "name": "Auxiliar Administrativo",  "person": "Jorge Vidal",          "planta": true },
+      { "id": "A_TECNICA", "name": "Técnica",                  "person": "Nuevo perfil" },
+      { "id": "A_ASIST",   "name": "Asistente",                "person": "Nuevo perfil" },
+      { "id": "A_ABOG",    "name": "Abogada",                  "person": "Nuevo perfil" },
+      { "id": "A_APOT1",   "name": "Apoyo Transversal",        "person": "Adelaida Rojas" },
+      { "id": "A_APOT2",   "name": "Apoyo Transversal",        "person": "Paula Daniela Vera" }
+    ],
+    "subroles": {}
+  }
+}
