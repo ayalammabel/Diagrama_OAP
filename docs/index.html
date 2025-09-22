@@ -21,28 +21,29 @@
       <h1 id="title">Organigramas – OAP</h1>
       <label>
         Equipo:
-        <select id="teamSelect">
-          <!-- Agrega tus equipos aquí -->
-          <option value="4p" selected>4P</option>
-        </select>
+        <select id="teamSelect"></select>
       </label>
       <button id="btnAntes">Ver ANTES</button>
       <button id="btnDespues">Ver DESPUÉS</button>
     </div>
-    <div class="hint">Clic en la **raíz** para plegar/desplegar roles. Clic en un **rol** para ver/ocultar la persona (y subroles, si existen).</div>
+    <div class="hint">
+      Clic en la <b>raíz</b> para plegar/desplegar roles. Clic en un <b>rol</b> para ver/ocultar la persona (y subroles, si existen).
+    </div>
   </header>
 
   <div id="network"></div>
 
   <script>
     /* ========= PARÁMETROS ========= */
-    const TEAMS = ["4p"]; // añade aquí las claves de tus equipos, p.ej. ["4p","simisional","presupuesto"]
+    // Por ahora solo TI. Más adelante puedes agregar más claves aquí y sus JSON en /docs/data/.
+    const TEAMS = ["ti"];
+    const TEAM_LABELS = { ti: "TI" };
+    let currentKey = "ti";
 
-    /* ========= ESTADO DE LA APP ========= */
+    /* ========= ESTADO ========= */
     let orgBefore = null;   // { id, label, roles: [...] }
     let orgAfter  = null;   // { id, label, roles: [...], subroles: { roleId: [...] } }
     let MODE = "DESPUES";   // "ANTES" | "DESPUES"
-    let currentKey = "4p";
 
     /* ========= VIS-NETWORK ========= */
     const nodes = new vis.DataSet();
@@ -56,7 +57,7 @@
     };
     const network = new vis.Network(container, { nodes, edges }, options);
 
-    // conjuntos para recordar qué está abierto
+    // estados de expansión
     const expandedRoot  = new Set();
     const openedPersons = new Set();
     const openedSubroles = new Set();
@@ -90,18 +91,24 @@
       if(expandedRoot.has(root.id)) removeRoles(root, roles);
       else addRoles(root, roles);
     }
+
+    // Mostrar/ocultar persona (sin "(por definir)"; lila si planta=true)
     function togglePerson(role){
+      if (!role.person || !role.person.trim()) return; // no crear nodo si no hay persona
       const pid = `${role.id}_P`;
-      if(openedPersons.has(pid)){
+      if (openedPersons.has(pid)){
         try{nodes.remove(pid); edges.remove(`${role.id}-${pid}`);}catch{}
         openedPersons.delete(pid);
-      }else{
-        const label = (role.person && role.person.trim()) ? role.person : "(por definir)";
-        nodes.add({ id:pid, label, shape:"box", font:{ italics:true } });
+      } else {
+        const label = role.person.trim();
+        const nodeOptions = { id: pid, label, shape: "box", font: { italics: true } };
+        if (role.planta) nodeOptions.color = { background: "#e9e0ff", border: "#7a5cff" };
+        nodes.add(nodeOptions);
         edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
         openedPersons.add(pid);
       }
     }
+
     function toggleSubroles(roleId, arr){
       if(!arr || !arr.length) return;
       if(openedSubroles.has(roleId)){
@@ -142,45 +149,52 @@
       btnDesp.textContent   = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
     }
 
-    /* ========= CARGA DE EQUIPOS (JSON) ========= */
+    /* ========= CARGA DE EQUIPO (JSON) ========= */
     async function loadTeam(key){
       try{
         const res = await fetch(`data/${key}.json`);
         const data = await res.json();
+        const prefix = key.toUpperCase(); // para evitar colisiones de IDs si luego hay más equipos
 
-        // Normaliza con prefijos para evitar colisiones de IDs entre equipos
-        const prefix = key.toUpperCase();
         orgBefore = {
           id: `ROOT_BEFORE_${prefix}`,
           label: data.before.label || `${data.meta?.equipo || key} – ANTES`,
           roles: (data.before.roles || []).map(r => ({
             id: `${prefix}_${r.id}`,
             name: r.name,
-            person: r.person || ""
+            person: r.person || "",
+            planta: !!r.planta
           }))
         };
+
         const sub = {};
         if (data.after.subroles){
           for (const roleId in data.after.subroles){
-            sub[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr=>({
-              id: `${prefix}_${sr.id}`, name: sr.name, person: sr.person || ""
+            sub[`${prefix}_${roleId}`] = data.after.subroles[roleId].map(sr => ({
+              id: `${prefix}_${sr.id}`,
+              name: sr.name,
+              person: sr.person || "",
+              planta: !!sr.planta
             }));
           }
         }
+
         orgAfter = {
           id: `ROOT_AFTER_${prefix}`,
           label: data.after.label || `${data.meta?.equipo || key} – DESPUÉS`,
           roles: (data.after.roles || []).map(r => ({
             id: `${prefix}_${r.id}`,
             name: r.name,
-            person: r.person || ""
+            person: r.person || "",
+            planta: !!r.planta
           })),
           subroles: sub
         };
 
-        // Título
+        // Título visible
+        const nice = TEAM_LABELS[key] || (data.meta?.equipo || key);
         document.getElementById("title").textContent =
-          `Organigrama – ${data.meta?.equipo || key}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
+          `Organigrama – ${nice}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
 
         // Vista por defecto
         MODE = "DESPUES";
@@ -210,10 +224,9 @@
       }
     });
 
-    // Select equipo
+    // Selector (solo TI por ahora)
     const sel = document.getElementById("teamSelect");
-    // poblar selector (por si editas TEAMS arriba)
-    sel.innerHTML = TEAMS.map(k => `<option value="${k}">${k.toUpperCase()}</option>`).join("");
+    sel.innerHTML = TEAMS.map(k => `<option value="${k}">${TEAM_LABELS[k] || k.toUpperCase()}</option>`).join("");
     sel.value = currentKey;
     sel.addEventListener("change", e => {
       currentKey = e.target.value;
@@ -229,3 +242,4 @@
   </script>
 </body>
 </html>
+
