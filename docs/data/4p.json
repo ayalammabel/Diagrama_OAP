@@ -26,30 +26,26 @@
       { "id": "A_PRESUP",  "name": "Presupuesto",            "person": "" },
       { "id": "A_POLITICA","name": "Política Pública",       "person": "" }
     ],
-
     "subroles": {
       "A_PROYINV": [
-        { "id": "SR_PI_5",           "name": "Analista de Proyectos (5 Proyectos)", "person": "Nuevo perfil" },
-        { "id": "SR_PI_AP4_NELLY",   "name": "Analista de Proyectos (4 Proyectos)", "person": "Nelly García", "planta": true },
-        { "id": "SR_PI_AP4_YULY",    "name": "Analista de Proyectos (4 Proyectos)", "person": "Yuly Sánchez" }
+        { "id": "SR_PI_5",        "name": "Analista de Proyectos (5 Proyectos)", "person": "Nuevo perfil" },
+        { "id": "SR_PI_AP4_NELLY","name": "Analista de Proyectos (4 Proyectos)", "person": "Nelly García", "planta": true },
+        { "id": "SR_PI_AP4_YULY", "name": "Analista de Proyectos (4 Proyectos)", "person": "Yuly Sánchez" }
       ],
-
       "A_GER8225": [
-        { "id": "SR_GER_LIDER", "name": "Líder financiero / Estudio de mercado", "person": "Nuevo perfil (MC)" },
-        { "id": "SR_GER_APOYO", "name": "Apoyo Técnico",                          "person": "Nuevo perfil (Diego)" }
+        { "id": "SR_GER_LIDER",  "name": "Líder financiero / Estudio de mercado", "person": "Nuevo perfil (MC)" },
+        { "id": "SR_GER_APOYO",  "name": "Apoyo técnico",                         "person": "Nuevo perfil (Diego)" }
       ],
-
       "A_PRESUP": [
-        { "id": "SR_PRE_APOYO", "name": "Apoyo técnico", "person": "" },
-        { "id": "SR_PRE_NUEVO", "name": "Nuevo perfil",  "person": "" }
+        { "id": "SR_PRE_APOYO", "name": "Apoyo técnico", "person": "Nuevo perfil" }
       ],
-
       "A_POLITICA": [
         { "id": "SR_POL_ANAL", "name": "Analista", "person": "Andrea Bello" }
       ]
     }
   }
 }
+
 
 
 
