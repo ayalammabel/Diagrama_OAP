@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Organigrama OAP – SIMISIONAL</title>
+  <!-- vis-network CDN -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin:0; }
+    #network { height: 80vh; border-top: 1px solid #eee; }
+    header { padding: 16px 20px; }
+    .hint { color:#666; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Organigrama – Equipo SIMISIONAL</h2>
+    <p class="hint">💡 Clic en <b>SIMISIONAL</b> para desplegar/plegar roles. Clic en un <b>rol</b> para mostrar/ocultar el <b>nombre</b>.</p>
+  </header>
+  <div id="network"></div>
+
+  <script>
+    // ---------- 1) Define tu árbol (edítalo aquí) ----------
+    const tree = {
+      id: "A",
+      label: "SIMISIONAL",
+      children: [
+        { id: "B", label: "Analista", person: "Luz Yamile Reyes" },
+        { id: "C", label: "DBA",      person: "Giovanny Benítez" },
+        { id: "D", label: "Frontend", person: "Fabián Acevedo"   },
+        { id: "E", label: "Backend",  person: "Steven Aroca"     }
+      ]
+    };
+
+    // ---------- 2) DataSets (vis.js) ----------
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
+
+    // Estados de expansión
+    const expandedRoles = new Set();   // hijos del root
+    const shownPersons  = new Set();   // nodos "persona" de cada rol
+
+    // Agrega solo el root al inicio
+    nodes.add({ id: tree.id, label: tree.label, shape: "box" });
+
+    // Helpers
+    function addRoleNodes() {
+      tree.children.forEach(ch => {
+        if (!nodes.get(ch.id)) nodes.add({ id: ch.id, label: ch.label, shape: "box" });
+        if (!edges.get(`${tree.id}-${ch.id}`)) edges.add({ id:`${tree.id}-${ch.id}`, from: tree.id, to: ch.id });
+      });
+      expandedRoles.add(tree.id);
+    }
+
+    function removeRoleNodes() {
+      // Quita personas visibles primero
+      tree.children.forEach(ch => {
+        const pid = `${ch.id}_p`;
+        if (shownPersons.has(pid)) {
+          try { nodes.remove(pid); } catch(e){}
+          try { edges.remove(`${ch.id}-${pid}`); } catch(e){}
+          shownPersons.delete(pid);
+        }
+      });
+      // Luego quita roles
+      tree.children.forEach(ch => {
+        try { edges.remove(`${tree.id}-${ch.id}`); } catch(e){}
+        try { nodes.remove(ch.id); } catch(e){}
+      });
+      expandedRoles.delete(tree.id);
+    }
+
+    function toggleRoot() {
+      if (expandedRoles.has(tree.id)) removeRoleNodes();
+      else addRoleNodes();
+    }
+
+    function togglePerson(roleId) {
+      const role = tree.children.find(c => c.id === roleId);
+      if (!role) return;
+      const personId = `${roleId}_p`;
+
+      if (shownPersons.has(personId)) {
+        // Oculta persona
+        try { nodes.remove(personId); } catch(e){}
+        try { edges.remove(`${roleId}-${personId}`); } catch(e){}
+        shownPersons.delete(personId);
+      } else {
+        // Muestra persona como un nodo hijo
+        if (!nodes.get(personId)) nodes.add({ id: personId, label: role.person, shape: "box", font: { italics: true } });
+        if (!edges.get(`${roleId}-${personId}`)) edges.add({ id:`${roleId}-${personId}`, from: roleId, to: personId });
+        shownPersons.add(personId);
+      }
+    }
+
+    // ---------- 3) Crea la red ----------
+    const container = document.getElementById("network");
+    const data = { nodes, edges };
+    const options = {
+      layout: {
+        hierarchical: {
+          enabled: true,
+          direction: "UD",       // UD = arriba→abajo
+          sortMethod: "directed",
+          levelSeparation: 120,
+          nodeSpacing: 180
+        }
+      },
+      nodes: {
+        shape: "box",
+        margin: 10,
+        borderWidth: 1,
+        color: {
+          background: "#ffffff",
+          border: "#777"
+        }
+      },
+      physics: false,
+      interaction: {
+        hover: true,
+        selectable: true
+      }
+    };
+    const network = new vis.Network(container, data, options);
+
+    // ---------- 4) Interacciones ----------
+    network.on("click", function (params) {
+      if (!params.nodes.length) return;
+      const id = params.nodes[0];
+      if (id === tree.id) {
+        toggleRoot();               // clic en root → roles
+      } else if (tree.children.some(c => c.id === id)) {
+        togglePerson(id);           // clic en rol → persona
+      }
+    });
+  </script>
+</body>
+</html>
