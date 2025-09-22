@@ -64,26 +64,10 @@
     const BUST = () => `v=${Date.now()}`;
 
     /********** ESPACIADO FIJO **********/
-    // —¡ajusta aquí!—
-    const FIXED_SPACING   = 320;  // separación horizontal uniforme entre cuadros del mismo nivel
-    const FIXED_TREE_SP   = 320;  // separación horizontal entre subárboles/ramas
-    const FIXED_LEVEL_SEP = 140;  // separación vertical entre niveles
-
-    function applyFixedSpacing(){
-      network.setOptions({
-        layout:{ hierarchical:{
-          nodeSpacing: FIXED_SPACING,
-          treeSpacing: FIXED_TREE_SP,
-          levelSeparation: FIXED_LEVEL_SEP,
-          blockShifting: false,
-          edgeMinimization: false,
-          parentCentralization: false,
-          sortMethod: "directed",
-          shakeTowards: "roots"
-        } }
-      });
-      setTimeout(()=>network.fit({animation:{duration:200}}),0);
-    }
+    // Ajusta estos tres valores a tu gusto
+    const FIXED_SPACING   = 320; // separación horizontal entre cuadros del mismo nivel
+    const FIXED_TREE_SP   = 320; // separación entre subárboles/ramas
+    const FIXED_LEVEL_SEP = 140; // separación vertical entre niveles
 
     /********** vis-network **********/
     const nodes = new vis.DataSet();
@@ -91,21 +75,51 @@
     const container = document.getElementById("network");
 
     const EDGE_COLOR = '#cbd5e1';
+    const baseHierOpts = {
+      enabled:true, direction:"UD",
+      levelSeparation: FIXED_LEVEL_SEP,
+      nodeSpacing: FIXED_SPACING,
+      treeSpacing: FIXED_TREE_SP,
+      blockShifting:false,          // no compactar bloques
+      edgeMinimization:false,       // no “apretar” para minimizar cruces
+      parentCentralization:false,   // no recentrar sobre el padre
+      sortMethod:"directed",
+      shakeTowards:"roots"
+    };
+
     const options = {
-      layout: { hierarchical: {
-        enabled:true, direction:"UD",
-        levelSeparation: FIXED_LEVEL_SEP,
-        nodeSpacing: FIXED_SPACING,
-        treeSpacing: FIXED_TREE_SP,
-        blockShifting:false, edgeMinimization:false, parentCentralization:false,
-        sortMethod:"directed", shakeTowards:"roots"
-      }},
+      layout: { hierarchical: { ...baseHierOpts } },
       physics:false,
       nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
       edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } },
-      interaction:{ hover:true, selectable:true }
+      interaction:{
+        hover:true,
+        hoverConnectedEdges:false,   // evita resaltar/”tensar” aristas al hover
+        selectable:true,
+        dragNodes:false              // no permitir arrastrar nodos
+      }
     };
     const network = new vis.Network(container, { nodes, edges }, options);
+
+    // Helpers para congelar/descongelar posiciones
+    function unlockAll(){
+      nodes.getIds().forEach(id => nodes.update({ id, fixed:{x:false,y:false} }));
+    }
+    function lockAll(){
+      const ids = nodes.getIds();
+      const pos = network.getPositions(ids);
+      ids.forEach(id => nodes.update({ id, x: pos[id].x, y: pos[id].y, fixed:{x:true,y:true} }));
+    }
+    function layoutAndLock(){
+      // Reaplica jerárquico + fit + congela
+      unlockAll();
+      network.setOptions({ layout:{ hierarchical: { ...baseHierOpts } } });
+      // Espera un tick para que aplique layout y luego congela
+      setTimeout(()=>{
+        network.fit({animation:{duration:200}});
+        lockAll();
+      },0);
+    }
 
     const expandedRoot  = new Set();
     const openedPersons = new Set();
@@ -148,7 +162,7 @@
         if(!edges.get(eid)) edges.add({ id:eid, from:parentId, to:r.id });
       });
       expandedRoot.add(parentId);
-      applyFixedSpacing();
+      layoutAndLock();
     }
     function removeRoles(parentId, roles){
       roles.forEach(r=>{
@@ -159,7 +173,7 @@
         try{ nodes.remove(r.id);}catch{}
       });
       expandedRoot.delete(parentId);
-      applyFixedSpacing();
+      layoutAndLock();
     }
 
     // PERSONAS
@@ -176,7 +190,7 @@
         edges.add({ id:`${role.id}-${pid}`, from:role.id, to:pid });
         openedPersons.add(pid);
       }
-      applyFixedSpacing();
+      layoutAndLock();
     }
 
     // Ignorar rótulos auxiliares
@@ -208,7 +222,7 @@
         });
         openedSubroles.add(roleId);
       }
-      applyFixedSpacing();
+      layoutAndLock();
     }
     function closeSubroles(roleId){
       const arr = orgAfter?.subroles?.[roleId];
@@ -219,7 +233,7 @@
         try{nodes.remove(pid);}catch{}; try{edges.remove(`${roleId}-${pid}`);}catch{}
       });
       openedSubroles.delete(roleId);
-      applyFixedSpacing();
+      layoutAndLock();
     }
 
     // Re-cablear bajo LÍDER
@@ -254,7 +268,7 @@
       mountRootNode(orgBefore.id, JEFA_LABEL, LV_ROOT);
       addRoles(orgBefore.id, orgBefore.roles, LV_ROLE);
       updateCountsUI();
-      applyFixedSpacing();
+      layoutAndLock();
       enrichCountsForOAP(orgAfter.roles);
     }
     function mountOAPAfter(){
@@ -269,7 +283,7 @@
       mountRootNode(orgAfter.id, JEFA_LABEL, LV_ROOT);
       addRoles(orgAfter.id, orgAfter.roles, LV_ROLE);
       updateCountsUI();
-      applyFixedSpacing();
+      layoutAndLock();
       enrichCountsForOAP(orgAfter.roles);
     }
 
@@ -286,7 +300,7 @@
       addRoles(TEAM_ROOT_ID, orgBefore.roles, LV_ROLE);
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgBefore.roles);
       updateCountsUI();
-      applyFixedSpacing();
+      layoutAndLock();
     }
     function mountTeamAfter(){
       MODE="DESPUES"; applyTheme();
@@ -301,7 +315,7 @@
       addRoles(TEAM_ROOT_ID, orgAfter.roles, LV_ROLE);
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, orgAfter.roles);
       updateCountsUI();
-      applyFixedSpacing();
+      layoutAndLock();
     }
 
     function updateCountsUI(){
@@ -309,7 +323,7 @@
       document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
     }
 
-    // OAP: recuentos de roles de cada equipo
+    // OAP: recuentos
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
       for(const r of roles){
@@ -461,6 +475,5 @@
   </script>
 </body>
 </html>
-
 
 
