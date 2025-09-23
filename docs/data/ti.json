@@ -2,29 +2,31 @@
   "meta": {
     "equipo": "TI",
     "titulo": "Tecnologías de la Información",
-    "leaderId": "B_LIDER"             
+    "leaderId": "B_LIDER"
   },
 
   "before": {
     "label": "TI – ANTES",
     "roles": [
-      { "id": "B_LIDER",           "name": "Líder",                               "person": "Jose Leonardo Buitrago" },
+      { "id": "B_LIDER",           "name": "Líder",                         "person": "José Leonardo Buitrago" },
 
-      { "id": "B_DBA",             "name": "DBA",                                 "person": "Gledy Jerez" },
-      { "id": "B_DEV_ICOPS",       "name": "Desarrollo ICOPS",                    "person": "Laura Gómez" },
-      { "id": "B_DEV_ORFEO",       "name": "Desarrollo ORFEO",                    "person": "Javier García" },
+      { "id": "B_DBA",             "name": "DBA",                           "person": "Gleidy Jimenes" },
+      { "id": "B_DEV_ICOPS",       "name": "Desarrollo ICOPS",              "person": "Laura Gómez" },
+      { "id": "B_DEV_FURAGICO",    "name": "Desarrollo FURAG / ICOPS",      "person": "Giovanni Benitez" },
+      { "id": "B_DEV_ORFEO",       "name": "Desarrollo ORFEO",              "person": "Javier García" },
 
-      { "id": "B_PANDORA_LEAD",    "name": "Líder Pandora",                       "person": "Camilo Calderon" },
+      { "id": "B_PANDORA_LEAD",    "name": "Equipo PANDORA (Líder)",        "person": "Camilo Calderon" },
 
-      { "id": "B_INFRA_LEAD",      "name": "Líder infraestructura y soporte",     "person": "Miguel Bernal" },
-      { "id": "B_SEGURIDAD_LEAD",  "name": "Líder Seguridad",                      "person": "Camilo Calderon" },
+      { "id": "B_INFRA_LEAD",      "name": "Infraestructura y soporte (Líder)", "person": "Miguel Bernal" },
 
-      { "id": "B_SIMISIONAL_LEAD", "name": "Líder SIMISIONAL",                     "person": "Yamile Reyes" }
+      { "id": "B_SEGURIDAD_LEAD",  "name": "Seguridad",                     "person": "Camilo Calderon" },
+
+      { "id": "B_SIMISIONAL_LEAD", "name": "SIMISIONAL (Líder)",            "person": "Yamile Reyes" }
     ],
     "subroles": {
       "B_PANDORA_LEAD": [
-        { "id": "B_PAND_DEV_SC", "name": "Desarrollo Pandora", "person": "Santiago Carreño" },
-        { "id": "B_PAND_DEV_LC", "name": "Desarrollo Pandora", "person": "Laura Cruz" }
+        { "id": "B_PAND_DEV_SC", "name": "Desarrollo", "person": "Santiago Carreño" },
+        { "id": "B_PAND_DEV_LC", "name": "Desarrollo", "person": "Laura Cruz" }
       ],
       "B_INFRA_LEAD": [
         { "id": "B_INF_APOYO_FP", "name": "Apoyo infraestructura", "person": "Fabián Puentes" },
@@ -35,7 +37,7 @@
         { "id": "B_SUP_APOYO_JV", "name": "Apoyo Soporte",         "person": "John Ventura" }
       ],
       "B_SIMISIONAL_LEAD": [
-        { "id": "B_SIM_DEV_MR", "name": "Desarrollo", "person": "Mauricio Rincon" },
+        { "id": "B_SIM_DEV_MR", "name": "Desarrollo", "person": "Mauricio Rincón" },
         { "id": "B_SIM_DEV_SA", "name": "Desarrollo", "person": "Steven Aroca" },
         { "id": "B_SIM_DEV_FA", "name": "Desarrollo", "person": "Favian Acevedo" }
       ]
@@ -76,7 +78,7 @@
       "DEV_PANDORA": [
         { "id": "SR_PAN_FS",  "name": "Full stack",   "person": "Nuevo perfil" },
         { "id": "SR_PAN_DBA", "name": "DBA",          "person": "Nuevo perfil" },
-        { "id": "SR_PAN_DEV", "name": "Desarrollador","person": "Gledy Jerez" }
+        { "id": "SR_PAN_DEV", "name": "Desarrollador", "person": "Gledy Jerez" }
       ],
       "DEV_ICOPS": [
         { "id": "SR_ICO_DEV", "name": "Desarrolladora", "person": "Laura Gómez" }
