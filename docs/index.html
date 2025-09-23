@@ -165,12 +165,23 @@
     }
     function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
+
+    // 👉 alinea la persona de la jefa con la jefa en X (si existe)
+    function alignJefaPersonX(){
+      const pid = `${STICKY_ID}_P`;
+      if (!nodes.get(pid) || !nodes.get(STICKY_ID)) return;
+      const jefaPos = network.getPositions([STICKY_ID])[STICKY_ID];
+      nodes.update({ id: pid, x: jefaPos.x });
+    }
+
     function stabilizeAndFit(anim=200){
       setStatus("Ajustando layout…");
       unfixAllPositions();
       applyVerticalByLevel(0);
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
+        // 🔧 Alinear jefa-persona DESPUÉS del espaciado, ANTES de fijar
+        alignJefaPersonX();
         setTimeout(() => {
           fixAllPositions(true);
           network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
@@ -397,15 +408,10 @@
       // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-      // *** AJUSTE: persona de la Jefa en nivel 2 y alineada verticalmente ***
+      // persona de la Jefa: nivel 2 y alineada verticalmente (sin diagonales)
       if (id === STICKY_ID) {
         togglePersonNode(STICKY_ID, JEFA_PERSON, 2, true);
-        const pid = `${STICKY_ID}_P`;
-        const jefaPos = network.getPositions([STICKY_ID])[STICKY_ID];
-        if (nodes.get(pid)) {
-          nodes.update({ id: pid, x: jefaPos.x, fixed: { x: true, y: false } });
-        }
-        stabilizeAndFit(120);
+        stabilizeAndFit(120); // alignJefaPersonX() se llama dentro
         return;
       }
 
