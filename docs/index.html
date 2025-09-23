@@ -174,7 +174,7 @@
       openedSubroles.delete(nodeId);
     }
 
-    /* ---------- NUEVO: fijar vertical por nivel ---------- */
+    /* Forzar vertical por nivel */
     function applyVerticalByLevel(y0=0){
       const all = nodes.get();
       nodes.update(all.map(n =>
@@ -228,7 +228,6 @@
     function stabilizeAndFit(anim=200){
       setStatus("Ajustando layout…");
       unfixAllPositions();
-      /* clave: forzamos Y por nivel antes de espaciar */
       applyVerticalByLevel(0);
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
@@ -351,7 +350,7 @@
 
     function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
-    /* ===== OAP (Jefa + Analista + Equipos) ===== */
+    /* ===== OAP (Jefa → Analista → Equipos) ===== */
     function mountOAP(view="DESPUÉS"){
       MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
       const data = (view==="ANTES") ? orgBefore : orgAfter;
@@ -361,13 +360,21 @@
       // Nivel 0: Jefa
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Nivel 1: Analista estratégica (si existe)
       const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
-      if (hasStrategist){ mountBox(STRATEGIST_ID, STRATEGIST.label, 1); addEdge(data.id, STRATEGIST_ID); }
+      // Nivel 1: Analista (si hay)
+      if (hasStrategist){
+        mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
+        addEdge(data.id, STRATEGIST_ID); // Jefa → Analista
+      }
 
-      // Nivel 2: Equipos (si hay analista), si no -> nivel 1
-      const levelTeams = hasStrategist ? 2 : 1;
-      (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
+      // Equipos: cuelgan de Analista si existe; si no, de la Jefa
+      const parentForTeams = hasStrategist ? STRATEGIST_ID : data.id;
+      const levelTeams     = hasStrategist ? 2 : 1;
+
+      (data.roles || []).forEach(r=>{
+        mountBox(r.id, r.name, levelTeams);
+        addEdge(parentForTeams, r.id);
+      });
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
     }
@@ -453,6 +460,7 @@
       }
     }
 
+    /* Clicks */
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -465,9 +473,11 @@
           if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
 
           if(expandedRoot.has(data.id)){
+            // Colapsar: quitar equipos y estratega
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
               removePerson(r.id); removeSidePerson(r.id);
+              try{ edges.remove(`${STRATEGIST_ID}-${r.id}`);}catch(_){}
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
@@ -478,16 +488,19 @@
             }
             expandedRoot.delete(data.id);
           }else{
-            if (STRATEGIST && STRATEGIST.label){
+            const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
+            if (hasStrategist){
               if(!nodes.get(STRATEGIST_ID)){
                 mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
-                addEdge(data.id, STRATEGIST_ID);
               }
+              addEdge(data.id, STRATEGIST_ID); // Jefa → Analista
             }
-            const levelTeams = (STRATEGIST && STRATEGIST.label) ? 2 : 1;
+            const parentForTeams = hasStrategist ? STRATEGIST_ID : data.id;
+            const levelTeams     = hasStrategist ? 2 : 1;
+
             (data.roles||[]).forEach(r=>{
               if(!nodes.get(r.id)) mountBox(r.id, r.name, levelTeams);
-              addEdge(data.id, r.id);
+              addEdge(parentForTeams, r.id);     // Analista → equipos (o Jefa → equipos)
             });
             expandedRoot.add(data.id);
           }
@@ -568,4 +581,5 @@
   </script>
 </body>
 </html>
+
 
