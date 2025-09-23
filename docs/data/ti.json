@@ -2,7 +2,7 @@
   "meta": {
     "equipo": "TI",
     "titulo": "Tecnologías de la Información",
-    "leaderId": "B_LIDER"              // <- líder del bloque ANTES
+    "leaderId": "B_LIDER"             
   },
 
   "before": {
