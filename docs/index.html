@@ -86,7 +86,6 @@
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
 
-    /* Conteos fijos para etiquetas del primer nivel en OAP */
     const OAP_FIXED_COUNTS = {
       AFTER: { "4P":8, "Administrativo":6, "Administrativos":6, "Gestión del Conocimiento":2, "MIPG":6, "TI":19 },
       BEFORE:{ "4P":6, "Administrativo":8, "Administrativos":8, "MIPG":8, "TI":20 }
@@ -125,6 +124,9 @@
     const openedSubroles = new Set();
     const sidePersons   = new Set();
 
+    /* ENLACES PUNTEADOS Analista → Equipos */
+    const strategistTeamLinks = new Set();
+
     function baseOptions(){
       return {
         layout: { hierarchical: {
@@ -149,9 +151,17 @@
       return m ? { title:m[1].trim(), person:m[2].trim() } : { title:base, person:"" };
     }
 
-    function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); }
+    function clearAll(){
+      nodes.clear(); edges.clear();
+      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear();
+      strategistTeamLinks.clear();
+    }
     function mountBox(id, label, level, extra={}){ nodes.add(Object.assign({ id, label, level, shape:"box", color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
-    function addEdge(from, to){ const id = `${from}-${to}`; if(!edges.get(id)) edges.add({ id, from, to }); }
+    function addEdge(from, to, idOverride){
+      const id = idOverride || `${from}-${to}`;
+      if(!edges.get(id)) edges.add({ id, from, to });
+      return id;
+    }
     function getLevel(nodeId){ const n = nodes.get(nodeId); return (n && typeof n.level === 'number') ? n.level : null; }
     function getSubrolesArr(data, nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
 
@@ -203,7 +213,7 @@
     function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
 
-    /* ---- NUEVO: Mantener Analista centrada bajo la Jefa ---- */
+    /* Mantener Analista centrada bajo la Jefa */
     function keepStrategistCentered(chiefId, strategistId){
       if(!nodes.get(chiefId) || !nodes.get(strategistId)) return;
       const pos = network.getPositions([chiefId])[chiefId];
@@ -232,6 +242,28 @@
     }
     function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
     function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
+
+    /* Enlaces punteados Analista → Equipos */
+    function removeStrategistTeamLinks(){
+      strategistTeamLinks.forEach(id => { try{ edges.remove(id);}catch(_){ } });
+      strategistTeamLinks.clear();
+    }
+    function linkStrategistToTeams(roles){
+      if (!nodes.get(STRATEGIST_ID) || !roles || !roles.length) return;
+      removeStrategistTeamLinks();
+      roles.forEach(r=>{
+        const eid = addEdge(STRATEGIST_ID, r.id, `STRAT-${r.id}`);
+        strategistTeamLinks.add(eid);
+        try{
+          edges.update({
+            id: eid,
+            dashes: true,
+            color: { color: '#94a3b8' },
+            smooth: { enabled:true, type:'curvedCW' }
+          });
+        }catch(_){}
+      });
+    }
 
     function stabilizeAndFit(anim=200){
       setStatus("Ajustando layout…");
@@ -382,12 +414,15 @@
       if (hasStrategist){
         mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
         addEdge(data.id, STRATEGIST_ID);
-        keepStrategistCentered(data.id, STRATEGIST_ID); // ← centrada desde el inicio
+        keepStrategistCentered(data.id, STRATEGIST_ID);
       }
 
       // Nivel 2 (si hay analista) o 1 (si no) para equipos
       const levelTeams = hasStrategist ? 2 : 1;
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
+
+      // Enlaces punteados Analista → Equipos
+      if (hasStrategist) linkStrategistToTeams(data.roles);
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
     }
@@ -494,6 +529,8 @@
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
+            // quitar enlaces punteados y la tarjeta de la analista
+            removeStrategistTeamLinks();
             if (nodes.get(STRATEGIST_ID)){
               removePerson(STRATEGIST_ID);
               try{ edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){}
@@ -505,7 +542,7 @@
               if(!nodes.get(STRATEGIST_ID)){
                 mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
                 addEdge(data.id, STRATEGIST_ID);
-                keepStrategistCentered(data.id, STRATEGIST_ID); // mantener centrada
+                keepStrategistCentered(data.id, STRATEGIST_ID);
               }
             }
             const levelTeams = (STRATEGIST && STRATEGIST.label) ? 2 : 1;
@@ -513,13 +550,16 @@
               if(!nodes.get(r.id)) mountBox(r.id, r.name, levelTeams);
               addEdge(data.id, r.id);
             });
+            // volver a crear los punteados
+            if (STRATEGIST && STRATEGIST.label) linkStrategistToTeams(data.roles);
+
             expandedRoot.add(data.id);
           }
           stabilizeAndFit(120);
           return;
         }
 
-        // Clic en Analista estratégica -> nombre lateral
+        // Clic en Analista estratégica -> nombre lateral (no toca punteados)
         if (id === STRATEGIST_ID){
           const sid = `${STRATEGIST_ID}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(STRATEGIST_ID); }
@@ -597,5 +637,6 @@
   </script>
 </body>
 </html>
+
 
 
