@@ -87,8 +87,7 @@
     sel.value = "oap";
 
     /* ================== CONTEOS MANUALES (OAP General) ==================
-       Clave por route (4p, ti, gestion_conocimiento, mipg, administrativo).
-       Edita aquí cuando necesites cambiar las cifras que se muestran en OAP. */
+       Clave por route (4p, ti, gestion_conocimiento, mipg, administrativo). */
     const OAP_MANUAL_COUNTS = {
       "ANTES": {
         "4p": 6,
@@ -120,17 +119,13 @@
 
     let JEFA_LABEL = "Jefa OAP";
     let JEFA_PERSON = "";
-    const STICKY_ID = "GLOBAL_OAP_JEFA"; // (solo en la vista OAP)
+    const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
     /* Analista estratégica (solo OAP) */
     const STRATEGIST_ID = "OAP_STRATEGIST";
     let STRATEGIST = null; // {label, person}
-
-    /* Anclas para centrar en OAP */
-    let ROOT_ANCHOR_X = 0;
-    let STRAT_ANCHOR_X = 0;
 
     const SIDE_OFFSET = 220;
     const JEFA_SIDE_OFFSET = 220;
@@ -168,6 +163,12 @@
 
     const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#8b5cf6';
     const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
+
+    /* === NUEVO: quita trailing "(n)" o "(n roles)" de cualquier etiqueta === */
+    function stripTrailingCount(s){
+      return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim();
+    }
+
     function splitTitlePerson(lbl){
       if(!lbl) return {title:"", person:""};
       const base = cleanPhase(lbl);
@@ -391,15 +392,15 @@
 
     function updateCountsUI(){}
 
-    /* ======= NUEVO: usa conteos manuales por route en OAP ======= */
+    /* ======= Usa conteos manuales por route en OAP y evita duplicados ======= */
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
       const modeKey = (MODE === "ANTES") ? "ANTES" : "DESPUÉS";
 
       for (const r of (roles || [])){
-        const baseLabel = String(r.name).replace(/\s*\(\d+\s*roles?\)\s*$/,'').trim();
-        const routeKey = (r.route || "").trim();
-        const manual = routeKey ? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
+        const baseLabel = stripTrailingCount(r.name);          // ← limpia "(n)" o "(n roles)"
+        const routeKey  = (r.route || "").trim();
+        const manual    = routeKey ? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
 
         if (typeof manual === "number"){
           nodes.update({ id: r.id, label: `${baseLabel} (${manual} roles)` });
@@ -444,7 +445,7 @@
       if(!data || !data.subroles) return;
       for(const parentId in data.subroles){
         const node = nodes.get(parentId); if(!node) continue;
-        const base = String(node.label||"").replace(/\s*\(\d+\s*roles?\)\s*$/,'').trim();
+        const base = stripTrailingCount(node.label || "");     // ← limpia también aquí
         const nOverride = overrides && overrides[base];
         const n = (nOverride != null) ? nOverride : data.subroles[parentId].length;
         nodes.update({ id: parentId, label: `${base} (${n} roles)` });
@@ -653,7 +654,3 @@
   </script>
 </body>
 </html>
-
-
-
-
