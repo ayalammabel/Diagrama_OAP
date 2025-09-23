@@ -79,7 +79,7 @@
       "DEV_PANDORA": [
         { "id": "SR_PAN_FS",  "name": "Full stack",   "person": "Nuevo perfil" },
         { "id": "SR_PAN_DBA", "name": "DBA",          "person": "Nuevo perfil" },
-        { "id": "SR_PAN_DEV", "name": "Desarrollador", "person": "Gledy Jerez" }
+        { "id": "SR_PAN_DEV", "name": "Desarrolladora", "person": "Gleidy Jerez" }
       ],
       "DEV_ICOPS": [
         { "id": "SR_ICO_DEV", "name": "Desarrolladora", "person": "Laura Gómez" }
