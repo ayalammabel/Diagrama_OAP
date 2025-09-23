@@ -6,110 +6,97 @@
   <title>Organigramas OAP – Antes / Después</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
-    :root{ --accent:#16a34a; }
+    :root{
+      --accent:#16a34a;
+      --ink:#0f172a;
+      --muted:#5b6474;
+      --border:#e6e8ee;
+      --bg:#ffffff;
+      --appbar-bg: linear-gradient(180deg,#f7f9fc, #eef2f7);
+    }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
 
-    *{ box-sizing:border-box }
-    body{ font-family:system-ui,Arial,sans-serif; margin:0; background:#fff; color:#111 }
-    #network{ height:80vh }
-
-    /* ===== App bar de presentación ===== */
+    /* App bar elegante */
+    header{
+      position:sticky; top:0; z-index:10;
+      background:var(--appbar-bg);
+      border-bottom:1px solid var(--border);
+    }
     .appbar{
-      --bg1:#f8fafc; --bg2:#eef2ff;
-      background:linear-gradient(180deg,var(--bg1),var(--bg2));
-      border-bottom:1px solid #e5e7eb; padding:18px 22px 12px; position:sticky; top:0; z-index:10;
+      max-width:1200px; margin:0 auto; padding:16px 20px;
+      display:flex; align-items:center; justify-content:space-between; gap:16px;
     }
-    .appbar__top{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-    .appbar__brand h1{ margin:0; font-weight:800; letter-spacing:.2px; font-size:1.25rem; }
-    .subtitle{ margin:.25rem 0 0; color:#4b5563; font-size:.9rem }
-    .appbar__controls{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .appbar__brand{min-width:0}
+    .appbar h1{
+      margin:0; font-size:1.25rem; line-height:1.25; font-weight:800; letter-spacing:.2px;
+    }
+    .appbar .subtitle{
+      margin:4px 0 0; color:var(--muted); font-size:.95rem;
+    }
+    .appbar__controls{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    label{font-size:.9rem; color:var(--muted)}
+    select,button{
+      padding:8px 10px; border:1px solid #d6d9de; background:#fff; border-radius:10px; cursor:pointer;
+      font-size:.95rem;
+    }
+    button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    #network{height:80vh}
 
-    /* Select bonito */
-    .select{ display:flex; gap:8px; align-items:center; color:#374151; font-weight:600; }
-    .select select{
-      appearance:none; -webkit-appearance:none; -moz-appearance:none;
-      padding:8px 36px 8px 12px; border:1px solid #d1d5db; border-radius:10px; background:#fff
-        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20"><path fill="%236b7280" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 0 1 1.08 1.04l-4.25 4.38a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z"/></svg>')
-        no-repeat right 10px center;
-      font-weight:600; color:#111827;
+    /* Hint breve debajo del appbar */
+    .hintwrap{
+      background:var(--appbar-bg); border-bottom:1px solid var(--border);
+    }
+    .hint{
+      max-width:1200px; margin:0 auto; padding:10px 20px 16px; color:var(--muted); font-size:.95rem;
     }
 
-    /* Botones segmentados ANTES / DESPUÉS */
-    .segmented{ display:inline-flex; background:#fff; border:1px solid #d1d5db; border-radius:12px; overflow:hidden; box-shadow:0 1px 0 rgba(0,0,0,.03); }
-    .segmented__btn{ border:0; background:transparent; padding:8px 12px; font-weight:700; cursor:pointer; color:#374151; }
-    .segmented__btn:hover{ background:#f3f4f6; }
-    .segmented__btn.active{ background:var(--accent); color:#fff; }
+    /* Ocultamos el status para no “ver” el Listo, pero el script puede usarlo */
+    #status{ display:none; }
 
-    /* Hint breve */
-    .mini-hint{ margin:10px 0 0; color:#6b7280; font-size:.9rem }
-
-    /* Toast de errores */
-    .toast{
-      position:fixed; right:16px; bottom:16px; max-width:60ch;
-      background:#111827; color:#fff; padding:10px 12px; border-radius:10px;
-      box-shadow:0 10px 24px rgba(0,0,0,.18); font-size:.9rem; opacity:0; transition:opacity .25s ease;
-    }
-    .toast.error{ background:#b91c1c; }
-    .toast.show{ opacity:1; }
-
-    /* Temas */
     body.mode-antes{ --accent:#2b6cb0; }
     body.mode-despues{ --accent:#16a34a; }
   </style>
 </head>
 <body class="mode-despues">
-  <header class="appbar">
-    <div class="appbar__top">
+
+  <header>
+    <div class="appbar">
       <div class="appbar__brand">
-        <h1 id="title">Transformación del equipo – OAP</h1>
-        <p class="subtitle">Propuesta presentada por la Jefa OAP</p>
+        <h1 id="title">Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year"></span></h1>
+        <p class="subtitle">Presentación institucional</p>
       </div>
 
       <div class="appbar__controls">
-        <label class="select">
-          <span>Equipo</span>
+        <label>Equipo:
           <select id="teamSelect"></select>
         </label>
-
-        <div class="segmented">
-          <button id="btnAntes" class="segmented__btn">Antes</button>
-          <button id="btnDespues" class="segmented__btn active">Después</button>
-        </div>
+        <button id="btnAntes">Ver ANTES</button>
+        <button id="btnDespues" class="active">Ver DESPUÉS</button>
+        <span id="status">Listo</span>
       </div>
     </div>
-
-    <p class="mini-hint">
-      Clic en la <b>raíz</b> para abrir niveles. Clic en un <b>rol</b> para ver personas y subroles.
-    </p>
+    <div class="hintwrap">
+      <div class="hint">
+        Usa la <b>raíz</b> para desplegar niveles y un <b>rol</b> para visualizar personas y subroles. En <b>OAP</b>, al hacer clic en un equipo se abre su subdiagrama.
+      </div>
+    </div>
   </header>
-
-  <!-- Toast de errores -->
-  <div id="toast" aria-live="polite" class="toast" hidden></div>
 
   <div id="network"></div>
 
   <script>
-    /************ TOAST DE ERRORES ************/
-    const toastEl = document.getElementById("toast");
-    function showToast(message, type='error', ms=4200){
-      if(!message) return;
-      toastEl.textContent = message;
-      toastEl.className = 'toast ' + (type || '');
-      toastEl.hidden = false;
-      requestAnimationFrame(()=> toastEl.classList.add('show'));
-      clearTimeout(showToast._t);
-      showToast._t = setTimeout(()=>{
-        toastEl.classList.remove('show');
-        setTimeout(()=> toastEl.hidden = true, 250);
-      }, ms);
-    }
-    // setStatus ahora solo muestra errores (para mantener la app bar limpia)
-    function setStatus(msg){
-      if (!msg) return;
-      if (/error|fall|no pude/i.test(msg)) showToast(msg, 'error');
-    }
+    /* Año automático en el título */
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    /************ CAPTURA GLOBAL DE ERRORES ************/
+    const statusEl = document.getElementById("status");
+    function setStatus(msg){ if(statusEl) statusEl.textContent = msg; }
     window.addEventListener("error", (e)=>{
       console.error(e.error || e.message);
-      showToast("Error: " + (e.error?.message || e.message), 'error');
+      setStatus("Error: " + (e.error?.message || e.message));
     });
 
     /************ CONFIG ************/
@@ -117,12 +104,12 @@
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
 
-    // Poblamos el selector pronto (si luego algo falla, el usuario sigue teniendo opciones)
+    // Llenamos el select pronto
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
 
-    // Niveles/espaciados
+    // Niveles de layout
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
 
@@ -136,7 +123,7 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    const SIDE_OFFSET = 220;      // lateral genérico (líder)
+    const SIDE_OFFSET = 220;      // lateral genérico
     const JEFA_SIDE_OFFSET = 220; // lateral jefa
 
     const nodes = new vis.DataSet();
@@ -148,9 +135,9 @@
     );
 
     const expandedRoot  = new Set();
-    const openedPersons = new Set();
+    const openedPersons = new Set();  // personas debajo
     const openedSubroles = new Set();
-    const sidePersons   = new Set();  // nodos laterales (jefa / líder)
+    const sidePersons   = new Set();  // personas laterales
 
     function baseOptions(){
       return {
@@ -162,7 +149,7 @@
         }},
         physics:false,
         nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
-        edges:{ color:{ color:'#cbd5e1' }, smooth:{ enabled:true, type:"horizontal", forceDirection:"vertical" } },
+        edges:{ color:{ color: '#cbd5e1' }, smooth:{ enabled:true, type:"horizontal", forceDirection:"vertical" } },
         interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true }
       };
     }
@@ -212,7 +199,6 @@
       openedSubroles.delete(nodeId);
     }
 
-    // Lateral (para jefa / líder)
     function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
@@ -234,8 +220,8 @@
       const level = getLevel(rootId) ?? 0;
       nodes.update({ id: sid, x: r.x + offset, y: r.y, level });
     }
-    const placeSidePersonForJefa = (rootId)=> placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET);
-    const keepJefaPersonSideAlignedFor = (rootId)=> keepSideAligned(rootId, JEFA_SIDE_OFFSET);
+    function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
+    function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
 
     function childrenOf(parentId){
       return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
@@ -257,7 +243,7 @@
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
 
     function stabilizeAndFit(anim=200){
-      // No mostramos “ajustando/listo” para mantener la UI limpia
+      setStatus("Ajustando layout…");
       unfixAllPositions();
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
@@ -267,6 +253,7 @@
         setTimeout(() => {
           fixAllPositions(true);
           network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
+          setStatus("Listo");
         }, 0);
       }, 0);
     }
@@ -348,8 +335,8 @@
     }
 
     function updateCountsUI(){
-      document.getElementById("btnAntes").textContent  = `Antes (${orgBefore?.roles?.length ?? 0})`;
-      document.getElementById("btnDespues").textContent = `Después (${orgAfter?.roles?.length ?? 0})`;
+      document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
+      document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
     }
 
     async function enrichCountsForOAP(roles){
@@ -392,6 +379,7 @@
 
     function mountTeam(view="DESPUÉS"){
       MODE = view; clearAll(); baseNetworkOptions();
+
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
@@ -407,6 +395,7 @@
     }
 
     async function loadTeam(key){
+      setStatus("Cargando…");
       try{
         const res = await fetch(`${DATA_DIR}/${key}.json?cb=${Date.now()}`);
         const data = await res.json();
@@ -441,10 +430,12 @@
         }
 
         const nice = TEAM_LABELS[key] || (data.meta?.equipo || key);
-        document.getElementById("title").textContent = `Transformación del equipo – ${nice}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
+        document.getElementById("title").innerHTML =
+          `Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year">${new Date().getFullYear()}</span>`;
 
         currentKey = key; sel.value = key;
         if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
+        setStatus("Listo");
       }catch(err){
         console.error(err);
         setStatus("Error al cargar");
@@ -543,13 +534,12 @@
 
     /************ SELECTOR Y BOTONES ************/
     sel.addEventListener("change", e=>loadTeam(e.target.value));
-    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); document.querySelector('#btnAntes').classList.add('active'); document.querySelector('#btnDespues').classList.remove('active'); document.body.classList.add('mode-antes'); document.body.classList.remove('mode-despues'); };
-    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); document.querySelector('#btnDespues').classList.add('active'); document.querySelector('#btnAntes').classList.remove('active'); document.body.classList.add('mode-despues'); document.body.classList.remove('mode-antes'); };
+    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
+    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
     /************ INICIO ************/
     loadTeam(currentKey);
   </script>
 </body>
 </html>
-
 
