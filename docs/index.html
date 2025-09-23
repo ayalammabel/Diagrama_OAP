@@ -62,7 +62,7 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    // Persona de la Jefa “al costado”
+    // Persona de la Jefa al costado (cuando se pide)
     const JEFA_SIDE_OFFSET = 220; // px a la derecha del nodo de Jefa
 
     const nodes = new vis.DataSet();
@@ -74,13 +74,9 @@
     function baseOptions(){
       return {
         layout: { hierarchical: {
-          enabled:true,
-          direction:"UD",
-          levelSeparation: LEVEL_Y_GAP,
-          nodeSpacing: MIN_GAP,
-          parentCentralization:true,
-          blockShifting:false,
-          edgeMinimization:true,
+          enabled:true, direction:"UD",
+          levelSeparation: LEVEL_Y_GAP, nodeSpacing: MIN_GAP,
+          parentCentralization:true, blockShifting:false, edgeMinimization:true,
           sortMethod:"directed"
         }},
         physics:false,
@@ -152,9 +148,7 @@
       if (!nodes.get(pid)){
         mountBox(pid, JEFA_PERSON.trim(), 0, { font:{ italics:true } });
         addEdge(rootId, pid);
-        try{
-          edges.update({ id:eid, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } });
-        }catch(_){}
+        try{ edges.update({ id:eid, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } }); }catch(_){}
         openedPersons.add(pid);
       }
       const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
@@ -197,7 +191,7 @@
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
 
-        // Mantener la persona de Jefa al costado en ambas vistas
+        // Mantener la persona de Jefa al costado si está dibujada
         if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
         else keepJefaPersonSideAlignedFor(STICKY_ID);
 
@@ -317,9 +311,6 @@
       // Nodo raíz (Jefa)
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Persona de la Jefa AL COSTADO también en OAP
-      placeSidePersonFor(data.id);
-
       // Equipos (nivel 1)
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
 
@@ -343,9 +334,6 @@
 
       // Jefa fija
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
-
-      // Persona de la Jefa AL COSTADO en vista de equipo
-      placeSidePersonFor(STICKY_ID);
 
       // Nodo del equipo
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
@@ -416,7 +404,18 @@
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
+        // Clic en Jefa OAP: expandir/colapsar + alternar persona al costado
         if(id===data.id){
+          // Toggle persona al costado SOLO bajo demanda
+          const pid = `${data.id}_P`;
+          if (nodes.get(pid)){ try{ edges.remove(`${data.id}-${pid}`);}catch(_){}
+            try{ nodes.remove(pid);}catch(_){}
+            openedPersons.delete(pid);
+          } else {
+            placeSidePersonFor(data.id);
+          }
+
+          // Y además expandir/colapsar primer nivel como siempre
           if(expandedRoot.has(data.id)){
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
@@ -424,11 +423,13 @@
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
-            expandedRoot.delete(data.id); stabilizeAndFit(120); return;
+            expandedRoot.delete(data.id);
           }else{
             (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
-            expandedRoot.add(data.id); stabilizeAndFit(120); return;
+            expandedRoot.add(data.id);
           }
+          stabilizeAndFit(120);
+          return;
         }
 
         const role = (data.roles||[]).find(r=>r.id===id);
@@ -440,7 +441,7 @@
       // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-      // Jefa OAP: toggle persona al costado
+      // Clic en Jefa OAP (sticky): alterna persona al costado
       if(id===STICKY_ID){
         const pid = `${STICKY_ID}_P`;
         if (nodes.get(pid)){ try{ edges.remove(`${STICKY_ID}-${pid}`);}catch(_){}
@@ -461,12 +462,13 @@
             try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
             try{ nodes.remove(r.id);}catch(_){}
           });
-          expandedRoot.delete(TEAM_ROOT_ID); stabilizeAndFit(120);
+          expandedRoot.delete(TEAM_ROOT_ID);
         }else{
           (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
           rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
-          expandedRoot.add(TEAM_ROOT_ID); stabilizeAndFit(120);
+          expandedRoot.add(TEAM_ROOT_ID);
         }
+        stabilizeAndFit(120);
         return;
       }
 
@@ -503,7 +505,6 @@
   </script>
 </body>
 </html>
-
 
 
 
