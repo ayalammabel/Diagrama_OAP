@@ -20,6 +20,11 @@
       --node-border:#d3d6e4;
       --leader-bg:#f4f1ff;       /* fondo tenue para líder */
       --leader-border:#7c3aed;
+
+      /* Resumen */
+      --summary-bg:#faf8ff;
+      --summary-accent:#7c3aed;
+      --summary-row:#f2efff;
     }
     *{box-sizing:border-box}
     body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
@@ -57,6 +62,33 @@
 
     body.mode-antes  { --accent: var(--accent-antes); }
     body.mode-despues{ --accent: #7c3aed; }
+
+    /* ====== Panel de resumen ====== */
+    .summary-wrap{max-width:1200px; margin:16px auto 32px; padding:0 20px;}
+    .summary-header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px;}
+    .summary-toggle{appearance:none; padding:10px 14px; font-weight:700; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer;}
+    .summary-toggle[aria-expanded="true"]{border-color:var(--summary-accent); box-shadow:0 6px 18px rgba(124,58,237,.12)}
+    .summary-panel{display:none; border:1px solid var(--border); border-radius:16px; margin-top:12px; overflow:hidden; background:#fff;}
+    .summary-panel.open{display:block;}
+    .summary-toolbar{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; background:var(--summary-bg); border-bottom:1px solid var(--border);}
+    .summary-toolbar .left{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .tag{font-size:.85rem; padding:4px 10px; border-radius:999px; border:1px solid var(--border); background:#fff;}
+    .toggle-view{display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden;}
+    .toggle-view button{padding:8px 12px; border:0; background:#fff; cursor:pointer; font-weight:600}
+    .toggle-view button.active{background:var(--summary-accent); color:#fff}
+
+    .tabs{display:flex; gap:6px;}
+    .tabs button{padding:6px 10px; border:1px solid var(--border); background:#fff; border-radius:8px; cursor:pointer; font-weight:600;}
+    .tabs button.active{background:#fff; color:var(--summary-accent); border-color:var(--summary-accent);}
+
+    .summary-table{width:100%; border-collapse:separate; border-spacing:0; font-size:.95rem;}
+    .summary-table th, .summary-table td{border-bottom:1px solid #e9e9f3; padding:10px 12px; text-align:center; white-space:nowrap;}
+    .summary-table thead th{position:sticky; top:0; background:#fff; z-index:1}
+    .summary-table .leftcell{text-align:left;}
+    .summary-table .group{background:var(--summary-row); font-weight:700;}
+    .summary-table .note{color:#6b7280; font-size:.85em; margin-left:4px}
+    .summary-foot{padding:10px 12px; color:#6b7280; font-size:.9rem; text-align:right}
+    .hr{height:1px; background:#eee; border:0; margin:0;}
   </style>
 </head>
 <body class="mode-despues">
@@ -85,6 +117,34 @@
 
   <div id="network"></div>
 
+  <!-- ===== Panel Resumen ===== -->
+  <div class="summary-wrap">
+    <div class="summary-header">
+      <h3 style="margin:0">Resumen de personas por equipo</h3>
+      <button id="btnResumen" class="summary-toggle" aria-expanded="false" aria-controls="summaryPanel">Mostrar resumen</button>
+    </div>
+
+    <section id="summaryPanel" class="summary-panel" role="region" aria-labelledby="btnResumen">
+      <div class="summary-toolbar">
+        <div class="left">
+          <span class="tag" id="summaryScope">Ámbito: OAP General</span>
+          <div class="toggle-view" role="tablist" aria-label="Modo de visualización del resumen">
+            <button id="viewTabs"   class="active" aria-selected="true">Pestañas</button>
+            <button id="viewCompare" aria-selected="false">Comparativo</button>
+          </div>
+        </div>
+        <div class="tabs" id="tabsZona">
+          <button data-tab="ANTES">Antes</button>
+          <button data-tab="DESPUÉS" class="active">Después</button>
+        </div>
+      </div>
+      <div id="summaryTableWrap" style="overflow:auto; max-height:60vh;">
+        <!-- tabla se inyecta aquí -->
+      </div>
+      <div class="summary-foot" id="summaryFoot"></div>
+    </section>
+  </div>
+
   <script>
     document.getElementById("year").textContent = new Date().getFullYear();
 
@@ -102,25 +162,11 @@
 
     /* ================== CONTEOS MANUALES (OAP General) ================== */
     const OAP_MANUAL_COUNTS = {
-      "ANTES": {
-        "4p": 6,
-        "ti": 19,
-        "gestion_conocimiento": 3,
-        "mipg": 8,
-        "administrativo": 8
-      },
-      "DESPUÉS": {
-        "4p": 8,
-        "ti": 20,
-        "gestion_conocimiento": 3,
-        "mipg": 6,
-        "administrativo": 6
-      }
+      "ANTES": { "4p": 6, "ti": 19, "gestion_conocimiento": 3, "mipg": 8, "administrativo": 8 },
+      "DESPUÉS": { "4p": 8, "ti": 20, "gestion_conocimiento": 3, "mipg": 6, "administrativo": 6 }
     };
 
-    const TEAM_FIXED_COUNTS = {
-      // ti: { "ANTES": { "Equipo de Desarrolladores": 11 }, "DESPUÉS": { ... } }
-    };
+    const TEAM_FIXED_COUNTS = { /* opcional */ };
 
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
@@ -324,7 +370,7 @@
         edges.add({
           id, from: STRATEGIST_ID, to: r.id,
           dashes: true, arrows: '',
-          color: {color:'#9aa3b2'},       /* un poco más visible */
+          color: {color:'#9aa3b2'},
           width: 1.6,
           smooth: { enabled:true, type:'horizontal', forceDirection:'vertical', roundness:0.35 }
         });
@@ -445,6 +491,12 @@
       document.body.classList.toggle("mode-antes",   MODE==="ANTES");
       document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
       a.style.setProperty("--btn-accent","var(--accent)"); d.style.setProperty("--btn-accent","var(--accent)");
+
+      /* sincroniza pestañas del resumen si está abierto y en modo tabs */
+      if (document.getElementById('summaryPanel').classList.contains('open') && currentResumenView === 'tabs') {
+        activeResumenTab = MODE;
+        renderResumen();
+      }
     }
 
     function updateCountsUI(){}
@@ -551,6 +603,9 @@
 
       updateCountsUI();
       stabilizeAndFit(160);
+
+      /* refrescar resumen si está abierto (alcance cambia a equipo) */
+      if (document.getElementById('summaryPanel').classList.contains('open')) renderResumen();
     }
 
     async function loadTeam(key){
@@ -613,7 +668,7 @@
       }
     }
 
-    /* -------- Interacción -------- */
+    /* -------- Interacción organigrama -------- */
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -621,7 +676,6 @@
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-        /* click en Jefa */
         if(id===data.id){
           const sid = `${data.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
@@ -658,7 +712,6 @@
           return;
         }
 
-        /* click en Analista estratégica: solo nombre lateral */
         if (id === STRATEGIST_ID){
           togglePersonNode(STRATEGIST_ID, STRATEGIST?.person || "", 2, false);
           nodes.update({ id: STRATEGIST_ID, x: 0 });
@@ -666,7 +719,6 @@
           return;
         }
 
-        /* click en equipo raíz de OAP ⇒ cargar subdiagrama sin jefa */
         const role = (data.roles||[]).find(r=>r.id===id);
         if(role && role.route){ loadTeam(role.route); return; }
         if(role && !role.route){ togglePersonNode(role.id, role.person, 3, !!role.planta); stabilizeAndFit(120); }
@@ -686,7 +738,7 @@
           expandedRoot.delete(TEAM_ROOT_ID);
         }else{
           (data.roles||[]).forEach(r=>{
-            if(!nodes.get(r.id)) mountBox(r.id, r.name, 1);  // nivel 1
+            if(!nodes.get(r.id)) mountBox(r.id, r.name, 1);
             addEdge(TEAM_ROOT_ID, r.id);
           });
 
@@ -726,10 +778,136 @@
       }
     });
 
-    sel.addEventListener("change", e=>loadTeam(e.target.value));
+    /* ======= Resumen (tabla) ======= */
+    let resumenData = null;
+    let currentResumenView = 'tabs'; // 'tabs' | 'compare'
+    let activeResumenTab = 'DESPUÉS'; // ANTES | DESPUÉS
+
+    async function ensureResumen(){
+      if (resumenData) return resumenData;
+      const res = await fetch(`${DATA_DIR}/resumen.json?cb=${Date.now()}`);
+      resumenData = await res.json();
+      return resumenData;
+    }
+
+    function fmt(n){ return (n===null || n===undefined || Number.isNaN(n)) ? '—' : String(n); }
+
+    function renderResumen(){
+      const panel = document.getElementById('summaryPanel');
+      if (!panel.classList.contains('open')) return;
+
+      const scopeTag = document.getElementById('summaryScope');
+      scopeTag.textContent = `Ámbito: ${TEAM_LABELS[currentKey]||currentKey.toUpperCase()}`;
+
+      const wrap = document.getElementById('summaryTableWrap');
+      const foot = document.getElementById('summaryFoot');
+      const data = resumenData?.equipos || {};
+
+      const keys = (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey];
+
+      function rowGroup(label, antes, despues, notaAntes, notaDespues){
+        return `<tr class="group">
+          <td class="leftcell">${label}</td>
+          ${currentResumenView==='compare'
+            ? `<td>${fmt(antes)}${notaAntes?`<span class="note">(${notaAntes})</span>`:''}</td>
+               <td>${fmt(despues)}${notaDespues?`<span class="note">(${notaDespues})</span>`:''}</td>`
+            : `<td>${fmt(activeResumenTab==='ANTES'?antes:despues)}${
+                (activeResumenTab==='ANTES'?notaAntes:notaDespues)?`<span class="note">(${activeResumenTab==='ANTES'?notaAntes:notaDespues})</span>`:''
+              }</td>`
+          }
+        </tr>`;
+      }
+      function rowSub(label, antes, despues){
+        return `<tr>
+          <td class="leftcell">${label}</td>
+          ${currentResumenView==='compare'
+            ? `<td>${fmt(antes)}</td><td>${fmt(despues)}</td>`
+            : `<td>${fmt(activeResumenTab==='ANTES'?antes:despues)}</td>`
+          }
+        </tr>`;
+      }
+
+      let html = `<table class="summary-table"><thead><tr>
+          <th class="leftcell">Equipos</th>
+          ${currentResumenView==='compare'
+            ? `<th>Antes</th><th>Después</th>`
+            : `<th>${activeResumenTab[0]+activeResumenTab.slice(1).toLowerCase()}</th>`}
+        </tr></thead><tbody>`;
+
+      let totalAntes = 0, totalDespues = 0;
+
+      keys.forEach(k=>{
+        const e = data[k];
+        if(!e) return;
+        const notaA = (e.antes && e.antes.nota) ? e.antes.nota.replace(/[()]/g,'') : '';
+        const notaD = (e.despues && e.despues.nota) ? e.despues.nota.replace(/[()]/g,'') : '';
+        html += rowGroup(e.label || k.toUpperCase(), e.antes?.total, e.despues?.total, notaA, notaD);
+
+        if (Array.isArray(e.subdivisiones)){
+          e.subdivisiones.forEach(s=>{
+            html += rowSub(s.label, s.antes, s.despues);
+          });
+        }
+        totalAntes  += Number(e.antes?.total || 0);
+        totalDespues+= Number(e.despues?.total || 0);
+        html += `<tr><td colspan="${currentResumenView==='compare'?3:2}"><div class="hr"></div></td></tr>`;
+      });
+
+      html += `</tbody></table>`;
+      wrap.innerHTML = html;
+
+      foot.textContent = (currentResumenView==='compare')
+        ? `Total — Antes: ${totalAntes} · Después: ${totalDespues}`
+        : (activeResumenTab==='ANTES' ? `Total — ${totalAntes}` : `Total — ${totalDespues}`);
+    }
+
+    /* UI resumen: handlers */
+    document.getElementById('btnResumen').addEventListener('click', async ()=>{
+      const panel = document.getElementById('summaryPanel');
+      const btn = document.getElementById('btnResumen');
+      const open = panel.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = open ? 'Ocultar resumen' : 'Mostrar resumen';
+      if (open){
+        await ensureResumen();
+        renderResumen();
+      }
+    });
+
+    document.getElementById('viewTabs').addEventListener('click', ()=>{
+      currentResumenView = 'tabs';
+      document.getElementById('viewTabs').classList.add('active');
+      document.getElementById('viewCompare').classList.remove('active');
+      document.getElementById('tabsZona').style.display = 'flex';
+      renderResumen();
+    });
+    document.getElementById('viewCompare').addEventListener('click', ()=>{
+      currentResumenView = 'compare';
+      document.getElementById('viewCompare').classList.add('active');
+      document.getElementById('viewTabs').classList.remove('active');
+      document.getElementById('tabsZona').style.display = 'none';
+      renderResumen();
+    });
+
+    /* tabs ANTES/DESPUÉS dentro del panel */
+    document.querySelectorAll('#tabsZona button').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        document.querySelectorAll('#tabsZona button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        activeResumenTab = b.dataset.tab;
+        renderResumen();
+      });
+    });
+
+    /* Cambio de equipo y modo */
+    sel.addEventListener("change", async e=>{
+      await loadTeam(e.target.value);
+      if (document.getElementById('summaryPanel').classList.contains('open')) renderResumen();
+    });
     document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
+    /* ===== Carga inicial ===== */
     loadTeam("oap");
   </script>
 </body>
