@@ -43,7 +43,7 @@
   <div id="network"></div>
 
   <script>
-    /****************** CONFIG GENERAL ******************/
+    /************ CONFIG ************/
     const DATA_DIR = "data";
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
@@ -62,15 +62,22 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    // Persona de la Jefa al costado
-    const JEFA_SIDE_OFFSET = 220;
+    // offsets laterales
+    const SIDE_OFFSET = 220;          // genérico
+    const JEFA_SIDE_OFFSET = 220;     // jefa
 
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
-    const container = document.getElementById("network");
-    const statusEl = document.getElementById("status");
+    const network = new vis.Network(document.getElementById("network"), { nodes, edges }, baseOptions());
 
+    const expandedRoot  = new Set();
+    const openedPersons = new Set();      // personas “debajo”
+    const openedSubroles = new Set();
+    const sidePersons = new Set();        // personas “al costado”
+
+    const statusEl = document.getElementById("status");
     const EDGE_COLOR = '#cbd5e1';
+
     function baseOptions(){
       return {
         layout: { hierarchical: {
@@ -80,18 +87,13 @@
           sortMethod:"directed"
         }},
         physics:false,
-        nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" }, font:{ multi:false } },
-        edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", roundness:0, forceDirection:"vertical" } },
+        nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
+        edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", forceDirection:"vertical" } },
         interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true }
       };
     }
-    const network = new vis.Network(container, { nodes, edges }, baseOptions());
 
-    const expandedRoot  = new Set();
-    const openedPersons = new Set();
-    const openedSubroles = new Set();
-
-    /****************** HELPERS ******************/
+    /************ HELPERS ************/
     const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#16a34a';
     const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
     function splitTitlePerson(lbl){
@@ -104,21 +106,15 @@
 
     function clearAll(){
       nodes.clear(); edges.clear();
-      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear();
+      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear();
     }
 
-    function mountBox(id, label, level, extra={}){
-      const base = { id, label, level, shape:"box", color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 };
-      nodes.add(Object.assign(base, extra));
-    }
+    function mountBox(id, label, level, extra={}){ nodes.add(Object.assign({ id, label, level, shape:"box", color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
     function addEdge(from, to){ const id = `${from}-${to}`; if(!edges.get(id)) edges.add({ id, from, to }); }
     function getLevel(nodeId){ const n = nodes.get(nodeId); return (n && typeof n.level === 'number') ? n.level : null; }
+    function getSubrolesArr(data, nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
 
-    function getSubrolesArr(data, nodeId){
-      return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null;
-    }
-
-    /****************** COLAPSO RECURSIVO ******************/
+    /************ COLAPSO ************/
     function removePerson(parentId){
       const pid = `${parentId}_P`;
       if (openedPersons.has(pid)){
@@ -127,11 +123,20 @@
         openedPersons.delete(pid);
       }
     }
+    function removeSidePerson(parentId){
+      const sid = `${parentId}_S`;
+      if (sidePersons.has(sid)){
+        try{ nodes.remove(sid); }catch(_){}
+        try{ edges.remove(`${parentId}-${sid}`); }catch(_){}
+        sidePersons.delete(sid);
+      }
+    }
     function closeSubtree(nodeId, data){
       const children = getSubrolesArr(data, nodeId) || [];
       children.forEach(ch => {
         closeSubtree(ch.id, data);
         removePerson(ch.id);
+        removeSidePerson(ch.id);
         try{ edges.remove(`${nodeId}-${ch.id}`);}catch(_){}
         try{ nodes.remove(ch.id);}catch(_){}
         openedSubroles.delete(ch.id);
@@ -139,32 +144,40 @@
       openedSubroles.delete(nodeId);
     }
 
-    /****************** JEFA AL COSTADO ******************/
-    function placeSidePersonFor(rootId){
-      if (!JEFA_PERSON || !JEFA_PERSON.trim()) return;
-      const pid = `${rootId}_P`;
-      const eid = `${rootId}-${pid}`;
-      if (!nodes.get(pid)){
-        mountBox(pid, JEFA_PERSON.trim(), 0, { font:{ italics:true } });
-        addEdge(rootId, pid);
+    /************ LATERALES (JEFA / LÍDER) ************/
+    function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
+      if (!label || !label.trim()) return;
+      const sid = `${rootId}_S`;
+      const eid = `${rootId}-${sid}`;
+      const node = nodes.get(rootId);
+      if (!node) return;
+
+      if (!nodes.get(sid)){
+        mountBox(sid, label.trim(), node.level, { font:{ italics:true } });
+        addEdge(rootId, sid);
         try{ edges.update({ id:eid, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } }); }catch(_){}
-        openedPersons.add(pid);
+        sidePersons.add(sid);
       }
       const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
-      nodes.update({ id: pid, x: r.x + JEFA_SIDE_OFFSET, y: r.y, level: 0, fixed:{ x:true, y:true } });
+      nodes.update({ id: sid, x: r.x + offset, y: r.y, level: node.level, fixed:{ x:true, y:true } });
     }
-    function keepJefaPersonSideAlignedFor(rootId){
-      const pid = `${rootId}_P`;
-      if (!nodes.get(pid) || !nodes.get(rootId)) return;
+    function keepSideAligned(rootId, offset = SIDE_OFFSET){
+      const sid = `${rootId}_S`;
+      if (!nodes.get(sid) || !nodes.get(rootId)) return;
       const r = network.getPositions([rootId])[rootId];
-      nodes.update({ id: pid, x: r.x + JEFA_SIDE_OFFSET, y: r.y, level: 0 });
+      const level = getLevel(rootId) ?? 0;
+      nodes.update({ id: sid, x: r.x + offset, y: r.y, level });
     }
 
-    /****************** ESPACIADO ******************/
-    function applyVerticalByLevel(y0=0){
-      const all = nodes.get();
-      nodes.update(all.map(n => (typeof n.level==='number') ? { id:n.id, y: y0 + n.level*LEVEL_Y_GAP } : { id:n.id }));
+    // JEFA a la derecha (usa el helper genérico)
+    function placeSidePersonForJefa(rootId){
+      placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET);
     }
+    function keepJefaPersonSideAlignedFor(rootId){
+      keepSideAligned(rootId, JEFA_SIDE_OFFSET);
+    }
+
+    /************ LAYOUT ************/
     function childrenOf(parentId){
       return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
     }
@@ -183,15 +196,22 @@
     }
     function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
+
     function stabilizeAndFit(anim=200){
       setStatus("Ajustando layout…");
       unfixAllPositions();
-      applyVerticalByLevel(0);
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
 
+        // Mantener laterales alineados
         if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
         else keepJefaPersonSideAlignedFor(STICKY_ID);
+
+        // Alinear todos los sidePersons abiertos (incluye líderes)
+        Array.from(sidePersons).forEach(sid => {
+          const rootId = sid.replace(/_S$/,'');
+          keepSideAligned(rootId, SIDE_OFFSET);
+        });
 
         setTimeout(() => {
           fixAllPositions(true);
@@ -201,7 +221,7 @@
       }, 0);
     }
 
-    /****************** PERSONAS / SUBROLES ******************/
+    /************ PERSONAS / SUBROLES (debajo) ************/
     function togglePersonNode(roleId, personLabel, levelIfUnknown, planta=false){
       const label = (personLabel || "").trim();
       if(!label) return;
@@ -221,7 +241,7 @@
       openedPersons.add(pid);
     }
 
-    // **AJUSTE CLAVE**: si el padre es LÍDER, subroles van a nivel+2 (quedan por DEBAJO de su persona)
+    // Si el padre es LÍDER, subroles bajan una capa adicional para que la persona lateral quede “arriba”
     function toggleSubroles(roleId, subrolesArr, dataCtx){
       if(!subrolesArr || !subrolesArr.length) return;
 
@@ -240,8 +260,7 @@
 
       const roleLevel = getLevel(roleId) ?? 3;
       const isLeaderParent = (LEADER_NODE_ID && roleId === LEADER_NODE_ID);
-
-      const subLevel = roleLevel + (isLeaderParent ? 2 : 1); // líder empuja subroles una capa más
+      const subLevel = roleLevel + (isLeaderParent ? 2 : 1);
       const personLevel = subLevel + 1;
 
       subrolesArr.forEach(sr=>{
@@ -253,19 +272,17 @@
 
         if (personText){
           mountBox(`${sr.id}_P`, personText, personLevel, { font:{ italics:true } });
-          addEdge(sr.id, `${sr.id}_P`);
-          openedPersons.add(`${sr.id}_P`);
+          addEdge(sr.id, `${sr.id}_P`); openedPersons.add(`${sr.id}_P`);
         } else if (!hasGrandkids) {
           mountBox(`${sr.id}_P`, "Nuevo perfil", personLevel, { font:{ italics:true } });
-          addEdge(sr.id, `${sr.id}_P`);
-          openedPersons.add(`${sr.id}_P`);
+          addEdge(sr.id, `${sr.id}_P`); openedPersons.add(`${sr.id}_P`);
         }
       });
 
       openedSubroles.add(roleId);
     }
 
-    /****************** LÍDER ******************/
+    /************ LÍDER (recableo) ************/
     function rewireUnderLeaderIfAny(rootId, roles, leaderIdFromMeta){
       let leaderId = leaderIdFromMeta || null;
       if(!leaderId){
@@ -283,7 +300,7 @@
       });
     }
 
-    /****************** CARGA Y MONTAJES ******************/
+    /************ CARGA Y MONTAJES ************/
     function updateCountsUI(){
       document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
       document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
@@ -395,7 +412,7 @@
       }
     }
 
-    /****************** INTERACCIÓN ******************/
+    /************ INTERACCIÓN ************/
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -405,21 +422,16 @@
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
         if(id===data.id){
-          // Toggle persona al costado
-          const pid = `${data.id}_P`;
-          if (nodes.get(pid)){
-            try{ edges.remove(`${data.id}-${pid}`);}catch(_){}
-            try{ nodes.remove(pid);}catch(_){}
-            openedPersons.delete(pid);
-          } else {
-            placeSidePersonFor(data.id);
-          }
+          // Toggle persona lateral de la Jefa
+          const sid = `${data.id}_S`;
+          if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
 
           // Expandir/colapsar primer nivel
           if(expandedRoot.has(data.id)){
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
               removePerson(r.id);
+              removeSidePerson(r.id);
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
@@ -442,14 +454,9 @@
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
       if(id===STICKY_ID){
-        const pid = `${STICKY_ID}_P`;
-        if (nodes.get(pid)){
-          try{ edges.remove(`${STICKY_ID}-${pid}`);}catch(_){}
-          try{ nodes.remove(pid);}catch(_){}
-          openedPersons.delete(pid);
-        } else {
-          placeSidePersonFor(STICKY_ID);
-        }
+        // Jefa lateral en vista de equipo
+        const sid = `${STICKY_ID}_S`;
+        if (sidePersons.has(sid)){ removeSidePerson(STICKY_ID); } else { placeSidePersonForJefa(STICKY_ID); }
         stabilizeAndFit(120);
         return;
       }
@@ -459,10 +466,11 @@
           (data.roles||[]).forEach(r=>{
             closeSubtree(r.id, data);
             removePerson(r.id);
+            removeSidePerson(r.id);
             try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
             try{ nodes.remove(r.id);}catch(_){}
           });
-        expandedRoot.delete(TEAM_ROOT_ID);
+          expandedRoot.delete(TEAM_ROOT_ID);
         }else{
           (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
           rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
@@ -472,23 +480,29 @@
         return;
       }
 
-      // clic en rol (primer nivel o líder)
+      // clic en rol (p.ej., LÍDER u otros)
       const role = (data.roles||[]).find(r=>r.id===id);
       if(role){
-        if (role.person && role.person.trim()){
-          togglePersonNode(role.id, role.person, 3, !!role.planta);
-        } else if (role.id === LEADER_NODE_ID){
-          // si el líder no trae persona, mostramos placeholder para que quede visualmente claro
-          togglePersonNode(role.id, "Nuevo perfil", 3, !!role.planta);
-        }
+        if (role.id === LEADER_NODE_ID){
+          // Líder: persona al costado (no debajo)
+          const sid = `${role.id}_S`;
+          if (sidePersons.has(sid)){ removeSidePerson(role.id); }
+          else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
 
-        const arr = data.subroles?.[role.id];
-        if(arr && arr.length) toggleSubroles(role.id, arr, data);
+          // Si tiene subroles, toggléalos
+          const arr = data.subroles?.[role.id];
+          if(arr && arr.length) toggleSubroles(role.id, arr, data);
+        }else{
+          // Resto de roles: comportamiento normal (persona debajo)
+          togglePersonNode(role.id, role.person, 3, !!role.planta);
+          const arr = data.subroles?.[role.id];
+          if(arr && arr.length) toggleSubroles(role.id, arr, data);
+        }
         stabilizeAndFit(120);
         return;
       }
 
-      // abrir nodos contenedores (SIMISIONAL, PANDORA, etc.)
+      // Nodos contenedores (SIMISIONAL, etc.)
       const nested = getSubrolesArr(data, id);
       if (nested && nested.length){
         toggleSubroles(id, nested, data);
@@ -497,7 +511,7 @@
       }
     });
 
-    /****************** SELECTOR Y BOTONES ******************/
+    /************ SELECTOR Y BOTONES ************/
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = currentKey;
@@ -506,10 +520,11 @@
     document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
-    /****************** INICIO ******************/
+    /************ INICIO ************/
     loadTeam(currentKey);
   </script>
 </body>
 </html>
+
 
 
