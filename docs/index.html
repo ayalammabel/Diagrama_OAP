@@ -121,7 +121,10 @@
     let JEFA_PERSON = "";
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
-    let LEADER_NODE_ID = null;
+
+    /* 🔸 CAMBIO: ids de líder por modo */
+    let LEADER_NODE_ID_BEFORE = null;
+    let LEADER_NODE_ID_AFTER  = null;
 
     /* Analista estratégica (solo OAP) */
     const STRATEGIST_ID = "OAP_STRATEGIST";
@@ -339,7 +342,11 @@
       }
 
       const roleLevel = getLevel(roleId) ?? 3;
-      const isLeaderParent = (LEADER_NODE_ID && roleId === LEADER_NODE_ID);
+
+      /* 👇 usamos el líder del modo actual para dar un salto de nivel si aplica */
+      const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
+      const isLeaderParent = (CURRENT_LEADER_ID && roleId === CURRENT_LEADER_ID);
+
       const subLevel = roleLevel + (isLeaderParent ? 2 : 1);
       const personLevel = subLevel + 1;
 
@@ -474,8 +481,9 @@
       // Hijos del equipo (nivel 1)
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(TEAM_ROOT_ID, r.id); });
 
-      // Reorganizar bajo "Líder" (si existe) con niveles relativos
-      rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
+      // 🔸 Reorganizar bajo el líder correcto según el modo
+      const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
+      rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
 
       const teamOverrides =
         (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "ANTES" : "DESPUÉS"]) || null;
@@ -509,7 +517,14 @@
           return out;
         }
 
-        LEADER_NODE_ID = data.meta?.leaderId ? `${prefix}_${data.meta.leaderId}` : null;
+        /* 🔸 leer líderes por modo (con fallback a leaderId único) */
+        LEADER_NODE_ID_BEFORE = data.meta?.leaderIdBefore ? `${prefix}_${data.meta.leaderIdBefore}` : null;
+        LEADER_NODE_ID_AFTER  = data.meta?.leaderIdAfter  ? `${prefix}_${data.meta.leaderIdAfter}`  : null;
+        if (data.meta?.leaderId) {
+          const fallback = `${prefix}_${data.meta.leaderId}`;
+          if (!LEADER_NODE_ID_BEFORE) LEADER_NODE_ID_BEFORE = fallback;
+          if (!LEADER_NODE_ID_AFTER)  LEADER_NODE_ID_AFTER  = fallback;
+        }
 
         /* estratega desde meta (solo OAP la usa) */
         STRATEGIST = data.meta?.strategist
@@ -614,7 +629,11 @@
             if(!nodes.get(r.id)) mountBox(r.id, r.name, 1);  // nivel 1
             addEdge(TEAM_ROOT_ID, r.id);
           });
-          rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
+
+          /* 🔸 usar líder correcto para esta vista */
+          const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
+          rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
+
           expandedRoot.add(TEAM_ROOT_ID);
         }
         stabilizeAndFit(120);
@@ -623,7 +642,10 @@
 
       const role = (data.roles||[]).find(r=>r.id===id);
       if(role){
-        if (role.id === LEADER_NODE_ID){
+        /* 🔸 comparación contra el líder del modo actual */
+        const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
+
+        if (role.id === CURRENT_LEADER_ID){
           const sid = `${role.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(role.id); }
           else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
@@ -654,3 +676,4 @@
   </script>
 </body>
 </html>
+
