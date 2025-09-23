@@ -7,7 +7,6 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root{
-      /* Paleta morada */
       --accent:#8b5cf6;          /* púrpura principal (Después) */
       --accent-antes:#6b21a8;    /* púrpura profundo (Antes) */
       --ink:#0f172a;
@@ -19,56 +18,34 @@
     *{box-sizing:border-box}
     body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
 
-    /* App bar */
     header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
-    .appbar{
-      max-width:1200px; margin:0 auto; padding:18px 20px;
-      display:flex; align-items:center; gap:24px;
-    }
+    .appbar{max-width:1200px; margin:0 auto; padding:18px 20px; display:flex; align-items:center; gap:24px;}
     .appbar__brand{min-width:0}
     .appbar h1{margin:0; font-size:1.28rem; line-height:1.25; font-weight:800; letter-spacing:.2px}
     .appbar .subtitle{margin:6px 0 0; color:var(--muted); font-size:.95rem}
     .appbar__controls{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
 
     label{font-size:.92rem; color:var(--muted)}
-    select{
-      padding:9px 12px; border:1px solid #dadcee; background:#fff; border-radius:12px; cursor:pointer; font-size:.95rem;
-      box-shadow:0 1px 0 rgba(0,0,0,.02);
-    }
+    select{padding:9px 12px; border:1px solid #dadcee; background:#fff; border-radius:12px; cursor:pointer; font-size:.95rem; box-shadow:0 1px 0 rgba(0,0,0,.02);}
 
-    /* Botones como grupo */
     .btn-group{display:flex; gap:8px; white-space:nowrap}
-    .btn{
-      --btn-accent: var(--accent);
-      appearance:none; border:none; outline:none; cursor:pointer;
+    .btn{--btn-accent: var(--accent); appearance:none; border:none; outline:none; cursor:pointer;
       padding:9px 14px; border-radius:999px; font-weight:600; font-size:.95rem;
-      background:#fff; color:var(--ink); border:1px solid #dadcee;
-      box-shadow:0 1px 0 rgba(0,0,0,.02);
-      transition:.18s ease;
-    }
+      background:#fff; color:var(--ink); border:1px solid #dadcee; box-shadow:0 1px 0 rgba(0,0,0,.02); transition:.18s ease;}
     .btn:hover{transform:translateY(-1px)}
-    .btn.active{
-      background:var(--btn-accent); color:#fff; border-color:var(--btn-accent);
-      box-shadow:0 6px 16px rgba(139,92,246,.25);
-    }
+    .btn.active{background:var(--btn-accent); color:#fff; border-color:var(--btn-accent); box-shadow:0 6px 16px rgba(139,92,246,.25);}
 
-    /* Hint */
     .hintwrap{background:var(--appbar-bg); border-bottom:1px solid var(--border)}
     .hint{max-width:1200px; margin:0 auto; padding:8px 20px 16px; color:var(--muted); font-size:.95rem}
 
-    /* Canvas */
     #network{height:82vh}
-
-    /* Ocultar “Listo” (se mantiene funcional para estados) */
     #status{ display:none; }
 
-    /* Modos para cambiar acento */
     body.mode-antes  { --accent: var(--accent-antes); }
     body.mode-despues{ --accent: #8b5cf6; }
   </style>
 </head>
 <body class="mode-despues">
-
   <header>
     <div class="appbar">
       <div class="appbar__brand">
@@ -80,12 +57,10 @@
         <label>Equipo:
           <select id="teamSelect"></select>
         </label>
-
         <div class="btn-group">
           <button id="btnAntes" class="btn">Antes</button>
           <button id="btnDespues" class="btn active">Después</button>
         </div>
-
         <span id="status">Listo</span>
       </div>
     </div>
@@ -99,56 +74,26 @@
   <div id="network"></div>
 
   <script>
-    /* Año automático en el título */
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    /************ CAPTURA GLOBAL DE ERRORES ************/
     const statusEl = document.getElementById("status");
     function setStatus(msg){ if(statusEl) statusEl.textContent = msg; }
-    window.addEventListener("error", (e)=>{
-      console.error(e.error || e.message);
-      setStatus("Error: " + (e.error?.message || e.message));
-    });
+    window.addEventListener("error", (e)=>{ console.error(e.error || e.message); setStatus("Error: " + (e.error?.message || e.message)); });
 
-    /************ CONFIG ************/
     const DATA_DIR = "data";
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
 
-    // Llenamos el select pronto
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
 
-    // ----- CONTEOS FIJOS QUE PEDISTE -----
-    // En OAP (nodos de primer nivel)
     const OAP_FIXED_COUNTS = {
-      AFTER: { // DESPUÉS
-        "4P": 8,
-        "Administrativo": 6,
-        "Administrativos": 6,
-        "Gestión del Conocimiento": 2,
-        "MIPG": 6,
-        "TI": 19,
-      },
-      BEFORE: { // ANTES
-        "4P": 6,
-        "Administrativo": 8,
-        "Administrativos": 8,
-        "MIPG": 8,
-        "TI": 20
-      }
+      AFTER: { "4P":8, "Administrativo":6, "Administrativos":6, "Gestión del Conocimiento":2, "MIPG":6, "TI":19 },
+      BEFORE:{ "4P":6, "Administrativo":8, "Administrativos":8, "MIPG":8, "TI":20 }
     };
+    const TEAM_FIXED_COUNTS = { ti: { BEFORE: { "Equipo de Desarrolladores": 11 } } };
 
-    // Dentro de subdiagramas por equipo (roles bajo el equipo)
-    const TEAM_FIXED_COUNTS = {
-      ti: {
-        BEFORE: { "Equipo de Desarrolladores": 11 },
-        // AFTER:  { "Equipo de Desarrolladores": 6 }, // si quieres fijar el después, descomenta
-      }
-    };
-
-    // Niveles de layout
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
 
@@ -162,13 +107,12 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    const SIDE_OFFSET = 220;      // lateral genérico
-    const JEFA_SIDE_OFFSET = 220; // lateral jefa
+    // NUEVO: analista estratégica
+    const STRATEGIST_ID = "OAP_STRATEGIST";
+    let STRATEGIST = null; // {label, person} leído del JSON
 
-    /* === NUEVO: Analista estratégica (en OAP base) === */
-    let STRATEGIST_NODE_ID = "OAP_ANALISTA_ESTRATEGICA";
-    let STRATEGIST_LABEL   = "Analista estratégica";
-    let STRATEGIST_PERSON  = ""; // opcional: nombre de la persona
+    const SIDE_OFFSET = 220;
+    const JEFA_SIDE_OFFSET = 220;
 
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
@@ -179,9 +123,9 @@
     );
 
     const expandedRoot  = new Set();
-    const openedPersons = new Set();  // personas debajo
+    const openedPersons = new Set();
     const openedSubroles = new Set();
-    const sidePersons   = new Set();  // personas laterales
+    const sidePersons   = new Set();
 
     function baseOptions(){
       return {
@@ -198,7 +142,6 @@
       };
     }
 
-    /************ HELPERS ************/
     const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#8b5cf6';
     const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
     function splitTitlePerson(lbl){
@@ -216,26 +159,17 @@
 
     function removePerson(parentId){
       const pid = `${parentId}_P`;
-      if (openedPersons.has(pid)){
-        try{ nodes.remove(pid); }catch(_){}
-        try{ edges.remove(`${parentId}-${pid}`); }catch(_){}
-        openedPersons.delete(pid);
-      }
+      if (openedPersons.has(pid)){ try{ nodes.remove(pid);}catch(_){} try{ edges.remove(`${parentId}-${pid}`);}catch(_){} openedPersons.delete(pid); }
     }
     function removeSidePerson(parentId){
       const sid = `${parentId}_S`;
-      if (sidePersons.has(sid)){
-        try{ nodes.remove(sid); }catch(_){}
-        try{ edges.remove(`${parentId}-${sid}`); }catch(_){}
-        sidePersons.delete(sid);
-      }
+      if (sidePersons.has(sid)){ try{ nodes.remove(sid);}catch(_){} try{ edges.remove(`${parentId}-${sid}`);}catch(_){} sidePersons.delete(sid); }
     }
     function closeSubtree(nodeId, data){
       const children = getSubrolesArr(data, nodeId) || [];
       children.forEach(ch => {
         closeSubtree(ch.id, data);
-        removePerson(ch.id);
-        removeSidePerson(ch.id);
+        removePerson(ch.id); removeSidePerson(ch.id);
         try{ edges.remove(`${nodeId}-${ch.id}`);}catch(_){}
         try{ nodes.remove(ch.id);}catch(_){}
         openedSubroles.delete(ch.id);
@@ -247,7 +181,6 @@
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
       const rootNode = nodes.get(rootId); if(!rootNode) return;
-
       if (!nodes.get(sid)){
         mountBox(sid, label.trim(), rootNode.level, { font:{ italics:true } });
         addEdge(rootId, sid);
@@ -307,8 +240,8 @@
       if(!label) return;
       const pid = `${roleId}_P`;
       if(openedPersons.has(pid)){
-        try{ nodes.remove(pid); }catch(_){}
-        try{ edges.remove(`${roleId}-${pid}`); }catch(_){}
+        try{ nodes.remove(pid);}catch(_){}
+        try{ edges.remove(`${roleId}-${pid}`);}catch(_){}
         openedPersons.delete(pid);
         return;
       }
@@ -327,9 +260,9 @@
       if(openedSubroles.has(roleId)){
         subrolesArr.forEach(sr=>{
           const rid = sr.id, pid = `${rid}_P`;
-          try{ nodes.remove(pid); }catch(_){}
+          try{ nodes.remove(pid);}catch(_){}
           try{ edges.remove(`${rid}-${pid}`);}catch(_){}
-          try{ nodes.remove(rid); }catch(_){}
+          try{ nodes.remove(rid);}catch(_){}
           try{ edges.remove(`${roleId}-${rid}`);}catch(_){}
           openedPersons.delete(pid);
         });
@@ -372,13 +305,12 @@
       nodes.update({ id: leaderId, level: 2 });
       roles.forEach(r=>{
         if(r.id === leaderId) return;
-        try{ edges.remove(`${rootId}-${r.id}`); }catch(_){}
+        try{ edges.remove(`${rootId}-${r.id}`);}catch(_){}
         addEdge(leaderId, r.id);
         nodes.update({ id: r.id, level: 3 });
       });
     }
 
-    /* Estilos de botones/tema */
     function refreshButtons(){
       const a = document.getElementById("btnAntes");
       const d = document.getElementById("btnDespues");
@@ -390,30 +322,17 @@
       d.style.setProperty("--btn-accent","var(--accent)");
     }
 
-    /* Sin contadores en botones */
     function updateCountsUI(){}
 
-    // --------- OAP: fija conteos si existen; si no, calcula desde JSON ---------
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
-
       const MODE_KEY = (MODE === "ANTES") ? "BEFORE" : "AFTER";
 
       for(const r of roles){
-        // Nombre base sin numeritos previos
-        const base = String(r.name)
-          .replace(/\s*\(\d+\s*roles?\)\s*$/,'')
-          .replace(/\s*\(\d+\)\s*$/,'')
-          .trim();
-
-        // 1) ¿Hay un valor fijo?
+        const base = String(r.name).replace(/\s*\(\d+\s*roles?\)\s*$/,'').replace(/\s*\(\d+\)\s*$/,'').trim();
         const fixed = OAP_FIXED_COUNTS[MODE_KEY]?.[base];
-        if (fixed != null){
-          nodes.update({ id:r.id, label:`${base} (${fixed} roles)` });
-          continue;
-        }
+        if (fixed != null){ nodes.update({ id:r.id, label:`${base} (${fixed} roles)` }); continue; }
 
-        // 2) Si no hay fijo: intenta calcular desde su JSON
         if(!r.route) continue;
         try{
           const res = await fetch(`${DATA_DIR}/${r.route}.json?cb=${Date.now()}`);
@@ -427,37 +346,39 @@
 
     function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
+    // ====== OAP (Jefa + Analista estratégica + Equipos) ======
     function mountOAP(view="DESPUÉS"){
       MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
+
       const data = (view==="ANTES") ? orgBefore : orgAfter;
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
 
-      // Raíz
+      // Jefa (nivel 0)
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Equipos (nivel 1)
-      (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
+      // Analista estratégica (nivel 1) si existe en JSON
+      const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
+      if (hasStrategist){
+        mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
+        addEdge(data.id, STRATEGIST_ID);
+      }
 
-      // === NUEVO: Analista estratégica (nivel 1 bajo la Jefa) ===
-      mountBox(STRATEGIST_NODE_ID, STRATEGIST_LABEL, 1);
-      addEdge(data.id, STRATEGIST_NODE_ID);
+      // Equipos: si hay analista, bajan a nivel 2; si no, nivel 1
+      const levelTeams = hasStrategist ? 2 : 1;
+      (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
     }
 
-    // ---- Roles dentro de un equipo (subdiagrama): admite overrides ----
+    // ---- Subdiagramas por equipo ----
     function addCountsToNodes(data, overrides){
       if(!data || !data.subroles) return;
       for(const parentId in data.subroles){
         const node = nodes.get(parentId); if(!node) continue;
-        const base = String(node.label||"")
-          .replace(/\s*\(\d+\s*roles?\)\s*$/,'')
-          .trim();
-
+        const base = String(node.label||"").replace(/\s*\(\d+\s*roles?\)\s*$/,'').trim();
         const nOverride = overrides && overrides[base];
         const n = (nOverride != null) ? nOverride : data.subroles[parentId].length;
-
         nodes.update({ id: parentId, label: `${base} (${n} roles)` });
       }
     }
@@ -475,7 +396,6 @@
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
 
-      // Overrides por equipo/modo
       const teamOverrides = (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "BEFORE" : "AFTER"]) || null;
       addCountsToNodes(data, teamOverrides);
 
@@ -508,6 +428,9 @@
 
         LEADER_NODE_ID = data.meta?.leaderId ? `${prefix}_${data.meta.leaderId}` : null;
 
+        // NUEVO: leer estratega desde meta
+        STRATEGIST = data.meta?.strategist ? { label: (data.meta.strategist.label||"").trim(), person: (data.meta.strategist.person||"").trim() } : null;
+
         orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles: mapRoles(data.before), subroles: mapSubroles(data.before) };
         orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles: mapRoles(data.after),  subroles: mapSubroles(data.after) };
 
@@ -515,12 +438,6 @@
           const {title, person} = splitTitlePerson(orgAfter.label);
           if(title) JEFA_LABEL = cleanPhase(title);
           if(person) JEFA_PERSON = person;
-
-          // === NUEVO: leer estratega desde meta (opcional) ===
-          if (data.meta?.strategist) {
-            STRATEGIST_LABEL  = data.meta.strategist.label  || STRATEGIST_LABEL;
-            STRATEGIST_PERSON = data.meta.strategist.person || STRATEGIST_PERSON;
-          }
         }
 
         document.getElementById("title").innerHTML =
@@ -536,7 +453,7 @@
       }
     }
 
-    /************ INTERACCIÓN ************/
+    // ========== Interacción ==========
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -544,37 +461,49 @@
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
+        // Jefa OAP: alterna persona lateral + expand/colapsa
         if(id===data.id){
           const sid = `${data.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
 
           if(expandedRoot.has(data.id)){
+            // Cerrar equipos
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
-              removePerson(r.id);
-              removeSidePerson(r.id);
+              removePerson(r.id); removeSidePerson(r.id);
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
-            // quitar también Analista estratégica
-            removePerson(STRATEGIST_NODE_ID);
-            try{ edges.remove(`${data.id}-${STRATEGIST_NODE_ID}`);}catch(_){}
-            try{ nodes.remove(STRATEGIST_NODE_ID);}catch(_){}
+            // Cerrar estratega si existe
+            if (nodes.get(STRATEGIST_ID)){
+              removePerson(STRATEGIST_ID);
+              try{ edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){}
+              try{ nodes.remove(STRATEGIST_ID);}catch(_){}
+            }
             expandedRoot.delete(data.id);
           }else{
-            (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
-            // volver a asegurar Analista estratégica
-            if (!nodes.get(STRATEGIST_NODE_ID)) mountBox(STRATEGIST_NODE_ID, STRATEGIST_LABEL, 1);
-            addEdge(data.id, STRATEGIST_NODE_ID);
+            // Abrir estratega (nivel 1) si hay
+            if (STRATEGIST && STRATEGIST.label){
+              if(!nodes.get(STRATEGIST_ID)){
+                mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
+                addEdge(data.id, STRATEGIST_ID);
+              }
+            }
+            // Abrir equipos (nivel 2 si hay estratega)
+            const levelTeams = (STRATEGIST && STRATEGIST.label) ? 2 : 1;
+            (data.roles||[]).forEach(r=>{
+              if(!nodes.get(r.id)) mountBox(r.id, r.name, levelTeams);
+              addEdge(data.id, r.id);
+            });
             expandedRoot.add(data.id);
           }
           stabilizeAndFit(120);
           return;
         }
 
-        // Clic en Analista estratégica: muestra persona si hay
-        if (id === STRATEGIST_NODE_ID){
-          togglePersonNode(STRATEGIST_NODE_ID, STRATEGIST_PERSON, 2, false);
+        // Clic en estratega: mostrar persona debajo si existe
+        if (id === STRATEGIST_ID){
+          togglePersonNode(STRATEGIST_ID, STRATEGIST?.person || "", 2, false);
           stabilizeAndFit(120);
           return;
         }
@@ -585,6 +514,7 @@
         return;
       }
 
+      // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
       if(id===STICKY_ID){
@@ -598,8 +528,7 @@
         if(expandedRoot.has(TEAM_ROOT_ID)){
           (data.roles||[]).forEach(r=>{
             closeSubtree(r.id, data);
-            removePerson(r.id);
-            removeSidePerson(r.id);
+            removePerson(r.id); removeSidePerson(r.id);
             try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
             try{ nodes.remove(r.id);}catch(_){}
           });
@@ -639,16 +568,13 @@
       }
     });
 
-    /************ SELECTOR Y BOTONES ************/
     sel.addEventListener("change", e=>loadTeam(e.target.value));
     document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
-    /************ INICIO ************/
     loadTeam("oap");
   </script>
 </body>
 </html>
-
 
 
