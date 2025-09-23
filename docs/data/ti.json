@@ -2,7 +2,8 @@
   "meta": {
     "equipo": "Tecnologías de la Información",
     "titulo": "Tecnologías de la Información",
-    "leaderId": "B_LIDER"
+    "leaderId": "B_LIDER",
+    "leaderIdAfter": "A_ARQ_SOL"
   },
 
   "before": {
