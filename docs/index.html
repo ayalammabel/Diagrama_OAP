@@ -397,7 +397,17 @@
       // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-      if(id===STICKY_ID){ togglePersonNode(STICKY_ID, JEFA_PERSON, 1, true); stabilizeAndFit(120); return; }
+      // *** AJUSTE: persona de la Jefa en nivel 2 y alineada verticalmente ***
+      if (id === STICKY_ID) {
+        togglePersonNode(STICKY_ID, JEFA_PERSON, 2, true);
+        const pid = `${STICKY_ID}_P`;
+        const jefaPos = network.getPositions([STICKY_ID])[STICKY_ID];
+        if (nodes.get(pid)) {
+          nodes.update({ id: pid, x: jefaPos.x, fixed: { x: true, y: false } });
+        }
+        stabilizeAndFit(120);
+        return;
+      }
 
       if(id===TEAM_ROOT_ID){
         if(expandedRoot.has(TEAM_ROOT_ID)){
@@ -449,6 +459,7 @@
   </script>
 </body>
 </html>
+
 
 
 
