@@ -17,7 +17,6 @@
     button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
     #network{height:80vh}
     .pill{padding:.1rem .5rem;border-radius:999px;background:#eef6ff;border:1px solid #cfe7ff;color:#1e40af;font-size:.8rem}
-
     body.mode-antes{ --accent:#2b6cb0; }
     body.mode-despues{ --accent:#16a34a; }
   </style>
@@ -26,10 +25,7 @@
   <header>
     <div class="row">
       <h1 id="title">Organigramas – OAP</h1>
-      <label>
-        Equipo:
-        <select id="teamSelect"></select>
-      </label>
+      <label>Equipo: <select id="teamSelect"></select></label>
       <button id="btnAntes">Ver ANTES</button>
       <button id="btnDespues" class="active">Ver DESPUÉS</button>
       <span id="status" class="pill">Listo</span>
@@ -43,12 +39,25 @@
   <div id="network"></div>
 
   <script>
+    /************ CAPTURA GLOBAL DE ERRORES ************/
+    const statusEl = document.getElementById("status");
+    function setStatus(msg){ statusEl.textContent = msg; }
+    window.addEventListener("error", (e)=>{
+      console.error(e.error || e.message);
+      setStatus("Error: " + (e.error?.message || e.message));
+    });
+
     /************ CONFIG ************/
     const DATA_DIR = "data";
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
 
-    // Niveles: 0 Jefa | 1 Equipo | 2 Líder | 3 Personas/otros roles | 4 Subroles | 5 Personas de subroles
+    // Llenamos el select MUY PRONTO para que siempre veas opciones aunque luego falle un fetch
+    const sel = document.getElementById("teamSelect");
+    sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
+    sel.value = "oap";
+
+    // Niveles de layout
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
 
@@ -62,21 +71,21 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    // offsets laterales
-    const SIDE_OFFSET = 220;          // genérico
-    const JEFA_SIDE_OFFSET = 220;     // jefa
+    const SIDE_OFFSET = 220;      // lateral genérico
+    const JEFA_SIDE_OFFSET = 220; // lateral jefa
 
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
-    const network = new vis.Network(document.getElementById("network"), { nodes, edges }, baseOptions());
+    const network = new vis.Network(
+      document.getElementById("network"),
+      { nodes, edges },
+      baseOptions()
+    );
 
     const expandedRoot  = new Set();
-    const openedPersons = new Set();      // personas “debajo”
+    const openedPersons = new Set();  // personas debajo
     const openedSubroles = new Set();
-    const sidePersons = new Set();        // personas “al costado”
-
-    const statusEl = document.getElementById("status");
-    const EDGE_COLOR = '#cbd5e1';
+    const sidePersons   = new Set();  // personas laterales
 
     function baseOptions(){
       return {
@@ -88,7 +97,7 @@
         }},
         physics:false,
         nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
-        edges:{ color:{ color: EDGE_COLOR }, smooth:{ enabled:true, type:"horizontal", forceDirection:"vertical" } },
+        edges:{ color:{ color: '#cbd5e1' }, smooth:{ enabled:true, type:"horizontal", forceDirection:"vertical" } },
         interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true }
       };
     }
@@ -102,19 +111,13 @@
       const m = base.match(/^(.+?)\s*[–-]\s*(.+)$/);
       return m ? { title:m[1].trim(), person:m[2].trim() } : { title:base, person:"" };
     }
-    function setStatus(msg){ statusEl.textContent = msg; }
 
-    function clearAll(){
-      nodes.clear(); edges.clear();
-      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear();
-    }
-
+    function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); }
     function mountBox(id, label, level, extra={}){ nodes.add(Object.assign({ id, label, level, shape:"box", color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
     function addEdge(from, to){ const id = `${from}-${to}`; if(!edges.get(id)) edges.add({ id, from, to }); }
     function getLevel(nodeId){ const n = nodes.get(nodeId); return (n && typeof n.level === 'number') ? n.level : null; }
     function getSubrolesArr(data, nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
 
-    /************ COLAPSO ************/
     function removePerson(parentId){
       const pid = `${parentId}_P`;
       if (openedPersons.has(pid)){
@@ -144,22 +147,19 @@
       openedSubroles.delete(nodeId);
     }
 
-    /************ LATERALES (JEFA / LÍDER) ************/
     function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
-      const eid = `${rootId}-${sid}`;
-      const node = nodes.get(rootId);
-      if (!node) return;
+      const rootNode = nodes.get(rootId); if(!rootNode) return;
 
       if (!nodes.get(sid)){
-        mountBox(sid, label.trim(), node.level, { font:{ italics:true } });
+        mountBox(sid, label.trim(), rootNode.level, { font:{ italics:true } });
         addEdge(rootId, sid);
-        try{ edges.update({ id:eid, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } }); }catch(_){}
+        try{ edges.update({ id:`${rootId}-${sid}`, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } }); }catch(_){}
         sidePersons.add(sid);
       }
       const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
-      nodes.update({ id: sid, x: r.x + offset, y: r.y, level: node.level, fixed:{ x:true, y:true } });
+      nodes.update({ id: sid, x: r.x + offset, y: r.y, level: rootNode.level, fixed:{ x:true, y:true } });
     }
     function keepSideAligned(rootId, offset = SIDE_OFFSET){
       const sid = `${rootId}_S`;
@@ -168,16 +168,9 @@
       const level = getLevel(rootId) ?? 0;
       nodes.update({ id: sid, x: r.x + offset, y: r.y, level });
     }
+    function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
+    function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
 
-    // JEFA a la derecha (usa el helper genérico)
-    function placeSidePersonForJefa(rootId){
-      placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET);
-    }
-    function keepJefaPersonSideAlignedFor(rootId){
-      keepSideAligned(rootId, JEFA_SIDE_OFFSET);
-    }
-
-    /************ LAYOUT ************/
     function childrenOf(parentId){
       return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
     }
@@ -202,17 +195,9 @@
       unfixAllPositions();
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
-
-        // Mantener laterales alineados
         if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
         else keepJefaPersonSideAlignedFor(STICKY_ID);
-
-        // Alinear todos los sidePersons abiertos (incluye líderes)
-        Array.from(sidePersons).forEach(sid => {
-          const rootId = sid.replace(/_S$/,'');
-          keepSideAligned(rootId, SIDE_OFFSET);
-        });
-
+        Array.from(sidePersons).forEach(sid => keepSideAligned(sid.replace(/_S$/,''), SIDE_OFFSET));
         setTimeout(() => {
           fixAllPositions(true);
           network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
@@ -221,7 +206,6 @@
       }, 0);
     }
 
-    /************ PERSONAS / SUBROLES (debajo) ************/
     function togglePersonNode(roleId, personLabel, levelIfUnknown, planta=false){
       const label = (personLabel || "").trim();
       if(!label) return;
@@ -241,7 +225,6 @@
       openedPersons.add(pid);
     }
 
-    // Si el padre es LÍDER, subroles bajan una capa adicional para que la persona lateral quede “arriba”
     function toggleSubroles(roleId, subrolesArr, dataCtx){
       if(!subrolesArr || !subrolesArr.length) return;
 
@@ -282,7 +265,6 @@
       openedSubroles.add(roleId);
     }
 
-    /************ LÍDER (recableo) ************/
     function rewireUnderLeaderIfAny(rootId, roles, leaderIdFromMeta){
       let leaderId = leaderIdFromMeta || null;
       if(!leaderId){
@@ -300,7 +282,6 @@
       });
     }
 
-    /************ CARGA Y MONTAJES ************/
     function updateCountsUI(){
       document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
       document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
@@ -349,14 +330,11 @@
 
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
-      // Jefa fija
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Nodo del equipo
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 1); addEdge(STICKY_ID, TEAM_ROOT_ID);
 
-      // Roles
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
       addCountsToNodes(data);
@@ -402,7 +380,7 @@
         const nice = TEAM_LABELS[key] || (data.meta?.equipo || key);
         document.getElementById("title").textContent = `Organigrama – ${nice}${data.meta?.titulo ? ` (${data.meta.titulo})` : ""}`;
 
-        currentKey = key; document.getElementById("teamSelect").value = key;
+        currentKey = key; sel.value = key;
         if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
         setStatus("Listo");
       }catch(err){
@@ -417,16 +395,13 @@
       if(!p.nodes.length) return;
       const id = p.nodes[0];
 
-      // Vista OAP
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
         if(id===data.id){
-          // Toggle persona lateral de la Jefa
           const sid = `${data.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
 
-          // Expandir/colapsar primer nivel
           if(expandedRoot.has(data.id)){
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
@@ -450,11 +425,9 @@
         return;
       }
 
-      // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
       if(id===STICKY_ID){
-        // Jefa lateral en vista de equipo
         const sid = `${STICKY_ID}_S`;
         if (sidePersons.has(sid)){ removeSidePerson(STICKY_ID); } else { placeSidePersonForJefa(STICKY_ID); }
         stabilizeAndFit(120);
@@ -480,20 +453,16 @@
         return;
       }
 
-      // clic en rol (p.ej., LÍDER u otros)
       const role = (data.roles||[]).find(r=>r.id===id);
       if(role){
         if (role.id === LEADER_NODE_ID){
-          // Líder: persona al costado (no debajo)
           const sid = `${role.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(role.id); }
           else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
 
-          // Si tiene subroles, toggléalos
           const arr = data.subroles?.[role.id];
           if(arr && arr.length) toggleSubroles(role.id, arr, data);
         }else{
-          // Resto de roles: comportamiento normal (persona debajo)
           togglePersonNode(role.id, role.person, 3, !!role.planta);
           const arr = data.subroles?.[role.id];
           if(arr && arr.length) toggleSubroles(role.id, arr, data);
@@ -502,7 +471,6 @@
         return;
       }
 
-      // Nodos contenedores (SIMISIONAL, etc.)
       const nested = getSubrolesArr(data, id);
       if (nested && nested.length){
         toggleSubroles(id, nested, data);
@@ -512,11 +480,7 @@
     });
 
     /************ SELECTOR Y BOTONES ************/
-    const sel = document.getElementById("teamSelect");
-    sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
-    sel.value = currentKey;
     sel.addEventListener("change", e=>loadTeam(e.target.value));
-
     document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
