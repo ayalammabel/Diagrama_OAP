@@ -227,7 +227,7 @@
       if (!nodes.get(sid)){
         mountBox(sid, label.trim(), rootNode.level, { font:{ italics:true } });
         addEdge(rootId, sid);
-        try{ edges.update({ id:`${rootId}-${sid}`, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } }); }catch(_){}
+        try{ edges.update({ id:`${rootId}-${sid}`, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } }); }catch(_){}
         sidePersons.add(sid);
       }
       const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
@@ -254,12 +254,13 @@
       roles.forEach(r=>{
         const eid = addEdge(STRATEGIST_ID, r.id, `STRAT-${r.id}`);
         strategistTeamLinks.add(eid);
+        // >>> AQUÍ EL AJUSTE DE FORMA <<<
         try{
           edges.update({
             id: eid,
             dashes: true,
             color: { color: '#94a3b8' },
-            smooth: { enabled:true, type:'curvedCW' }
+            smooth: { enabled:true, type:'horizontal', forceDirection:'vertical' } // igual que las demás
           });
         }catch(_){}
       });
@@ -272,13 +273,11 @@
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
 
-        // Mantener analista centrada bajo la Jefa cuando exista
         if (currentKey === "oap" && nodes.get(STRATEGIST_ID)) {
           const rootId = (MODE==="ANTES") ? orgBefore.id : orgAfter.id;
           keepStrategistCentered(rootId, STRATEGIST_ID);
         }
 
-        // Alinear personas laterales (Jefa y Analista)
         if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
         else keepJefaPersonSideAlignedFor(STICKY_ID);
         Array.from(sidePersons).forEach(sid => keepSideAligned(sid.replace(/_S$/,''), SIDE_OFFSET));
@@ -578,13 +577,6 @@
       // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-      if(id===STICKY_ID){
-        const sid = `${STICKY_ID}_S`;
-        if (sidePersons.has(sid)){ removeSidePerson(STICKY_ID); } else { placeSidePersonForJefa(STICKY_ID); }
-        stabilizeAndFit(120);
-        return;
-      }
-
       if(id===TEAM_ROOT_ID){
         if(expandedRoot.has(TEAM_ROOT_ID)){
           (data.roles||[]).forEach(r=>{
@@ -637,6 +629,7 @@
   </script>
 </body>
 </html>
+
 
 
 
