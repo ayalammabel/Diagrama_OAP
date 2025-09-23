@@ -1,12 +1,12 @@
 {
   "meta": {
-    "equipo": "4P",
+    "equipo": "Proyectos, Procesos, Planes y Programas",
     "titulo": "Planes, Políticas, Proyectos y Presupuesto",
     "leaderId": "A_LIDER"
   },
 
   "before": {
-    "label": "4P (6 roles) – ANTES",
+    "label": "Proyectos, Procesos, Planes y Programas (6 roles) – ANTES",
     "roles": [
       { "id": "B_LIDER",    "name": "Líder",               "person": "Nelly García" },
       { "id": "B_REF1",     "name": "Referente",           "person": "Yuly Sánchez" },
@@ -18,7 +18,7 @@
   },
 
   "after": {
-    "label": "4P – DESPUÉS",
+    "label": "Proyectos, Procesos, Planes y Programas – DESPUÉS",
     "roles": [
       { "id": "A_LIDER",   "name": "Líder",                  "person": "" },
       { "id": "A_PROYINV", "name": "Proyectos de Inversión", "person": "" },
