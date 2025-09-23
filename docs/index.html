@@ -7,14 +7,14 @@
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <style>
   :root{
+    /* Paleta base */
     --accent:#7c3aed;           /* púrpura (Después) */
-    --accent-antes:#6b21a8;
+    --accent-antes:#06b6d4;     /* cian (Antes) */
     --ink:#0f172a;
     --muted:#6b7280;
     --border:#e6e7ef;
     --bg:#ffffff;
     --appbar-bg: linear-gradient(180deg,#f6f4ff 0%, #f1effe 100%);
-    --header-h: 112px;          /* se actualiza por JS */
 
     --node-bg:#ffffff;
     --node-border:#d3d6e4;
@@ -22,13 +22,15 @@
     --leader-border:#7c3aed;
 
     /* Drawer */
-    --bar-before:#06b6d4;       /* cyan (ANTES) */
-    --bar-after:#7c3aed;        /* púrpura (DESPUÉS) */
+    --bar-before:var(--accent-antes);
+    --bar-after:var(--accent);
     --bar-track:#eef2ff;
+    --pill-active: var(--bar-after);  /* se cambia dinámicamente según modo */
   }
 
   *{box-sizing:border-box}
   body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+
   header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
   .appbar{max-width:1200px; margin:0 auto; padding:18px 20px; display:flex; align-items:center; gap:24px;}
   .appbar__brand{min-width:0}
@@ -56,51 +58,59 @@
       linear-gradient(90deg,transparent 31px,#f4f5fb 32px) repeat-x;
     background-size:32px 32px,32px 32px;
   }
+
   #status{ display:none; }
+
   body.mode-antes  { --accent: var(--accent-antes); }
   body.mode-despues{ --accent: #7c3aed; }
 
   /* ===== Drawer (Resumen) ===== */
-  aside#drawer{ position:fixed; right:0; top:var(--header-h); height:calc(100vh - var(--header-h)); width:0; z-index:40; pointer-events:none; }
-  .sheet{
-    position:absolute; inset:auto 0 0 auto;
-    width:420px; max-width:92vw; height:100%;
+  .drawer{position:fixed; right:0; left:auto; z-index:50; pointer-events:none;}
+  .drawer .sheet{
+    width:420px; max-width:92vw;
+    height:calc(100vh - var(--drawer-top,0px));
     background:#fff; border-left:1px solid var(--border);
     box-shadow:-18px 0 36px rgba(16,24,40,.08);
-    transform:translateX(100%); transition:.24s ease;
-    display:flex; flex-direction:column;
-    pointer-events:auto;
+    transform:translateX(100%); transition:.24s ease; pointer-events:auto;
+    display:flex; flex-direction:column; position:fixed; right:0; top:var(--drawer-top,0px);
   }
-  .open .sheet{ transform:translateX(0); }
+  .drawer.open .sheet{ transform:translateX(0); }
 
   .sheet__head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border)}
-  .title{font-weight:800; margin-right:auto}
-  .pill{padding:7px 11px; border:1px solid var(--border); border-radius:12px; background:#fff; font-weight:700; cursor:pointer}
-  .pill.active{background:var(--accent); border-color:var(--accent); color:#fff}
-  .xbtn{width:32px; height:32px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:700}
+  .sheet__title{font-weight:800}
+  .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; font-weight:700; cursor:pointer; user-select:none}
+  .pill.active{background:var(--pill-active); border-color:var(--pill-active); color:#fff}
+  .spacer{flex:1}
+  .xbtn{width:36px; height:36px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:800}
 
   .sheet__body{padding:12px; overflow:auto}
-  .legend{display:flex; align-items:center; gap:10px; font-size:.9rem; color:#475569; margin-bottom:8px}
+  .legend{display:flex; align-items:center; gap:10px; font-size:.9rem; color:#475569; margin:0 0 8px 2px}
   .dot{width:10px; height:10px; border-radius:999px}
   .dot.before{background:var(--bar-before)}
   .dot.after{background:var(--bar-after)}
 
-  .row{margin:12px 0}
-  .row .label{font-weight:700; margin-bottom:6px}
-  .track{position:relative; height:26px; background:var(--bar-track); border-radius:8px; overflow:hidden}
-  .fill{position:absolute; inset:0 auto 0 0; height:100%; display:flex; align-items:center; padding-left:8px; color:#fff; font-weight:800; font-size:.85rem}
+  .row{margin:14px 0}
+  .row .label{font-weight:800; margin-bottom:6px}
+  .track{position:relative; height:28px; background:var(--bar-track); border-radius:8px; overflow:hidden}
+  .fill{position:absolute; inset:0 auto 0 0; height:100%; display:flex; align-items:center; padding-left:8px; color:#fff; font-weight:800; font-size:.9rem}
   .fill.before{background:var(--bar-before)}
   .fill.after{background:var(--bar-after)}
-  .track.compare{height:46px; background:transparent}
-  .track.compare .fill{position:relative; border-radius:6px; margin:4px 0}
-  .sub{margin-left:12px; border-left:2px solid #eef2ff; padding-left:10px}
+  .track.compare{height:auto; background:transparent}
+  .track.compare .fill{position:relative; border-radius:6px; margin:4px 0; height:26px}
+  .sub{margin-left:10px; border-left:2px solid #eef2ff; padding-left:10px}
 
-  /* helpers */
-  .muted{ color:#6b7280; font-weight:600; font-size:.9rem }
+  .hr{height:1px; background:#eee; border:0; margin:12px 0 6px}
+  .summary-table{width:100%; border-collapse:separate; border-spacing:0; font-size:.9rem;}
+  .summary-table th, .summary-table td{border-bottom:1px solid #e9e9f3; padding:8px 10px; text-align:center; white-space:nowrap;}
+  .summary-table thead th{text-align:left; position:sticky; top:0; background:#fff;}
+  .summary-table .left{text-align:left}
+
+  /* Botón para abrir el drawer */
+  .btn-small{padding:8px 12px; border-radius:12px; font-weight:700; border:1px solid var(--border); background:#fff; cursor:pointer}
 </style>
 </head>
 <body class="mode-despues">
-  <header>
+  <header id="appHeader">
     <div class="appbar">
       <div class="appbar__brand">
         <h1 id="title">Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year"></span></h1>
@@ -114,7 +124,10 @@
 
         <button id="btnAntes" class="btn">Antes</button>
         <button id="btnDespues" class="btn active">Después</button>
+
+        <!-- Abrir el drawer -->
         <button id="openSummary" class="btn">Resumen</button>
+
         <span id="status">Listo</span>
       </div>
     </div>
@@ -126,120 +139,146 @@
   <div id="network"></div>
 
   <!-- ===== Drawer lateral ===== -->
-  <aside id="drawer" aria-hidden="true">
-    <div class="sheet" role="dialog" aria-label="Roles por equipo">
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-label="Resumen de personas">
       <div class="sheet__head">
-        <div class="title">Roles por equipo</div>
+        <span class="sheet__title">Roles por equipo</span>
+        <span class="spacer"></span>
+
         <button id="pillAntes"    class="pill">Antes</button>
         <button id="pillDespues"  class="pill active">Después</button>
         <button id="pillComparar" class="pill">Comparar</button>
-        <button id="pillSubdiv"   class="pill">Subdividir</button>
+        <button id="pillSubs"     class="pill" aria-pressed="false" title="Mostrar subdivisiones">Subdividir</button>
+
         <button id="closeDrawer" class="xbtn" aria-label="Cerrar">×</button>
       </div>
 
       <div class="sheet__body">
         <div class="legend" id="legend" style="display:none">
-          <span class="dot before"></span> <span class="muted">Antes</span>
-          <span class="dot after" style="margin-left:10px"></span> <span class="muted">Después</span>
+          <span class="dot before"></span> Antes
+          <span class="dot after" style="margin-left:12px"></span> Después
         </div>
         <div id="chart"></div>
+
+        <hr class="hr" />
+        <div id="tableWrap" style="min-height:220px">
+          <!-- tabla abajo -->
+        </div>
       </div>
     </div>
   </aside>
 
 <script>
-/* ===== Util / encabezado ===== */
+/* ================== util base ================== */
 document.getElementById("year").textContent = new Date().getFullYear();
 const statusEl = document.getElementById("status");
 function setStatus(msg){ if(statusEl) statusEl.textContent = msg; }
 window.addEventListener("error", (e)=>{ console.error(e.error || e.message); setStatus("Error: " + (e.error?.message || e.message)); });
 
-function syncHeaderOffset(){
-  const h = document.querySelector('header')?.offsetHeight || 112;
-  document.documentElement.style.setProperty('--header-h', `${h}px`);
-}
-window.addEventListener('load', syncHeaderOffset);
-window.addEventListener('resize', syncHeaderOffset);
-
-/* ===== selección de equipo ===== */
+/* ================== selección de equipo ================== */
 const DATA_DIR = "data";
 const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
 const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
+
 const sel = document.getElementById("teamSelect");
 sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
 sel.value = "oap";
 
-/* ===== conteos OAP (manuales) ===== */
+/* ================== conteos OAP (manuales) ================== */
 const OAP_MANUAL_COUNTS = {
   "ANTES": { "4p": 6, "ti": 19, "gestion_conocimiento": 3, "mipg": 8, "administrativo": 8 },
   "DESPUÉS": { "4p": 8, "ti": 20, "gestion_conocimiento": 3, "mipg": 6, "administrativo": 6 }
 };
 const TEAM_FIXED_COUNTS = {};
 
-/* ===== network (igual que tenías) ===== */
-const LEVEL_Y_GAP = 130, MIN_GAP = 300;
-let currentKey = "oap", MODE = "DESPUÉS";
+/* ================== network (sin cambios funcionales) ================== */
+const LEVEL_Y_GAP = 130;
+const MIN_GAP = 300;
+
+let currentKey = "oap";
+let MODE = "DESPUÉS";
 let orgBefore = null, orgAfter = null;
 
-let JEFA_LABEL = "Jefa OAP", JEFA_PERSON = "";
+let JEFA_LABEL = "Jefa OAP";
+let JEFA_PERSON = "";
 const STICKY_ID = "GLOBAL_OAP_JEFA";
 let TEAM_ROOT_ID = null;
 
-let LEADER_NODE_ID_BEFORE = null, LEADER_NODE_ID_AFTER  = null;
-const STRATEGIST_ID = "OAP_STRATEGIST"; let STRATEGIST = null;
-const SIDE_OFFSET = 220, JEFA_SIDE_OFFSET = 220;
+let LEADER_NODE_ID_BEFORE = null;
+let LEADER_NODE_ID_AFTER  = null;
 
-const nodes = new vis.DataSet(), edges = new vis.DataSet();
-const network = new vis.Network(document.getElementById("network"), { nodes, edges }, baseOptions());
+const STRATEGIST_ID = "OAP_STRATEGIST";
+let STRATEGIST = null;
+
+const SIDE_OFFSET = 220;
+const JEFA_SIDE_OFFSET = 220;
+
+const nodes = new vis.DataSet();
+const edges = new vis.DataSet();
+const network = new vis.Network(
+  document.getElementById("network"),
+  { nodes, edges },
+  baseOptions()
+);
+
 network.setOptions({
-  nodes:{ chosen:{ node:(v)=>{ v.shadow=true; v.shadowSize=28; v.shadowColor="rgba(124,58,237,.20)"; v.borderWidth=2;
-    v.color=v.color||{}; v.color.border=getComputedStyle(document.body).getPropertyValue('--accent').trim(); } } },
-  edges:{ chosen:{ edge:(v)=>{ v.width=2; v.color=getComputedStyle(document.body).getPropertyValue('--accent').trim(); } } }
+  nodes:{
+    chosen:{ node:(values)=>{ values.shadow=true; values.shadowSize=28; values.shadowColor="rgba(124,58,237,.20)"; values.borderWidth=2;
+      values.color = values.color || {}; values.color.border = getComputedStyle(document.body).getPropertyValue('--accent').trim(); } }
+  },
+  edges:{ chosen:{ edge:(values)=>{ values.width=2; values.color=getComputedStyle(document.body).getPropertyValue('--accent').trim(); } } }
 });
-function baseOptions(){ return {
-  layout:{ hierarchical:{ enabled:true, direction:"UD", levelSeparation:LEVEL_Y_GAP, nodeSpacing:MIN_GAP, parentCentralization:true, blockShifting:false, edgeMinimization:true, sortMethod:"directed" } },
-  physics:false,
-  nodes:{ shape:"box", margin:10, borderWidth:1,
-    color:{ background:getComputedStyle(document.body).getPropertyValue('--node-bg').trim(), border:getComputedStyle(document.body).getPropertyValue('--node-border').trim() },
-    font:{ size:14, face:"system-ui, Segoe UI, Roboto, Arial, sans-serif", color:"#111827" },
-    shadow:{ enabled:true, color:"rgba(0,0,0,.08)", size:20, x:0, y:6 }, shapeProperties:{ borderRadius:12 } },
-  edges:{ color:{ color:'#cfd5e3', highlight:'#a7b0c6' }, width:1.2, smooth:{ enabled:true, type:"cubicBezier", forceDirection:"vertical", roundness:0.5 } },
-  interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true, tooltipDelay:100 }
-};}
-const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#7c3aed';
-const cleanPhase = (s='') => s.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
-const stripTrailingCount = (s)=> String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim();
-function splitTitlePerson(lbl){ if(!lbl) return {title:"",person:""}; const base=cleanPhase(lbl); const m=base.match(/^(.+?)\s*[–-]\s*(.+)$/); return m?{title:m[1].trim(), person:m[2].trim()}:{title:base, person:""}; }
 
+function baseOptions(){
+  return {
+    layout:{ hierarchical:{ enabled:true, direction:"UD", levelSeparation:LEVEL_Y_GAP, nodeSpacing:MIN_GAP, parentCentralization:true, blockShifting:false, edgeMinimization:true, sortMethod:"directed" } },
+    physics:false,
+    nodes:{ shape:"box", margin:10, borderWidth:1,
+      color:{ background:getComputedStyle(document.body).getPropertyValue('--node-bg').trim(), border:getComputedStyle(document.body).getPropertyValue('--node-border').trim() },
+      font:{ size:14, face:"system-ui, Segoe UI, Roboto, Arial, sans-serif", color:"#111827" },
+      shadow:{ enabled:true, color:"rgba(0,0,0,.08)", size:20, x:0, y:6 }, shapeProperties:{ borderRadius:12 } },
+    edges:{ color:{ color:'#cfd5e3', highlight:'#a7b0c6' }, width:1.2, smooth:{ enabled:true, type:"cubicBezier", forceDirection:"vertical", roundness:0.5 } },
+    interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true, tooltipDelay:100 }
+  };
+}
+
+const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#7c3aed';
+const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
+function stripTrailingCount(s){ return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim(); }
+function splitTitlePerson(lbl){ if(!lbl) return {title:"", person:""}; const base=cleanPhase(lbl); const m=base.match(/^(.+?)\s*[–-]\s*(.+)$/); return m?{title:m[1].trim(), person:m[2].trim()}:{title:base, person:""}; }
+
+function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear(); }
 function mountBox(id,label,level,extra={}){ nodes.add(Object.assign({ id,label,level,shape:"box",color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
 function addEdge(from,to,extra={}){ const id=`${from}-${to}`; if(!edges.get(id)) edges.add(Object.assign({ id,from,to }, extra)); return id; }
-function getLevel(id){ const n=nodes.get(id); return (n && typeof n.level==='number')?n.level:null; }
-function getSubrolesArr(d,id){ return (d && d.subroles && d.subroles[id]) ? d.subroles[id] : null; }
+function getLevel(nodeId){ const n=nodes.get(nodeId); return (n && typeof n.level==='number')?n.level:null; }
+function getSubrolesArr(data,nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
+function removePerson(parentId){ const pid=`${parentId}_P`; if(openedPersons.has(pid)){ try{nodes.remove(pid);}catch(_){} try{edges.remove(`${parentId}-${pid}`);}catch(_){} openedPersons.delete(pid);} }
+function removeSidePerson(parentId){ const sid=`${parentId}_S`; if(sidePersons.has(sid)){ try{nodes.remove(sid);}catch(_){} try{edges.remove(`${parentId}-${sid}`);}catch(_){} sidePersons.delete(sid);} }
 
-const expandedRoot=new Set(), openedPersons=new Set(), openedSubroles=new Set(), sidePersons=new Set(), dottedArcIds=new Set();
-function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear(); }
-function removePerson(pid){ const id=`${pid}_P`; if(openedPersons.has(id)){ try{nodes.remove(id);}catch(_){} try{edges.remove(`${pid}-${id}`);}catch(_){} openedPersons.delete(id);} }
-function removeSidePerson(pid){ const id=`${pid}_S`; if(sidePersons.has(id)){ try{nodes.remove(id);}catch(_){} try{edges.remove(`${pid}-${id}`);}catch(_){} sidePersons.delete(id);} }
-
-function closeSubtree(nodeId, data){
+function closeSubtree(nodeId,data){
   const children = getSubrolesArr(data,nodeId) || [];
-  children.forEach(ch => { closeSubtree(ch.id,data); removePerson(ch.id); removeSidePerson(ch.id);
+  children.forEach(ch => {
+    closeSubtree(ch.id,data);
+    removePerson(ch.id); removeSidePerson(ch.id);
     try{edges.remove(`${nodeId}-${ch.id}`);}catch(_){}
     try{nodes.remove(ch.id);}catch(_){}
     openedSubroles.delete(ch.id);
   });
   openedSubroles.delete(nodeId);
 }
+
 function applyVerticalByLevel(y0=0){ const all=nodes.get(); nodes.update(all.map(n => (typeof n.level==='number')?{id:n.id,y:y0+n.level*LEVEL_Y_GAP}:{id:n.id})); }
 function childrenOf(parentId){ return edges.get({ filter:e=>e.from===parentId }).map(e=>e.to).filter(id => !!nodes.get(id)); }
-function spreadChildren(pid,gap=MIN_GAP){ const kids=childrenOf(pid); if(kids.length<2) return;
-  const p=network.getPositions([pid])[pid]||{x:0,y:0}; const posKids=network.getPositions(kids);
+function spreadChildren(parentId,gap=MIN_GAP){ const kids=childrenOf(parentId); if(kids.length<2) return;
+  const p=network.getPositions([parentId])[parentId]||{x:0,y:0}; const posKids=network.getPositions(kids);
   kids.sort((a,b)=>(posKids[a]?.x||0)-(posKids[b]?.x||0)); const total=(kids.length-1)*gap; let startX=p.x-total/2;
   nodes.update(kids.map((id,i)=>({id,x:Math.round(startX+i*gap)})));
 }
 function applyHorizontalSpacingAll(gap=MIN_GAP){ const parents=[...new Set(edges.get().map(e=>e.from))]; parents.sort((a,b)=>((nodes.get(a)?.level||0)-(nodes.get(b)?.level||0))); parents.forEach(pid=>spreadChildren(pid,gap)); }
 function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n=>({id:n.id,fixed:{x:fix,y:fix}}))); }
 function unfixAllPositions(){ nodes.update(nodes.get().map(n=>({id:n.id,fixed:{x:false,y:false}}))); }
+
+const expandedRoot=new Set(); const openedPersons=new Set(); const openedSubroles=new Set(); const sidePersons=new Set(); const dottedArcIds=new Set();
 
 function placeSidePersonFor(rootId,label,offset=SIDE_OFFSET){
   if(!label||!label.trim()) return;
@@ -268,6 +307,7 @@ function buildDottedArcsToTeams(roles){
     dottedArcIds.add(id);
   });
 }
+
 function stabilizeAndFit(anim=200){
   setStatus("Ajustando layout…"); unfixAllPositions(); applyVerticalByLevel(0);
   setTimeout(()=>{ applyHorizontalSpacingAll(MIN_GAP);
@@ -280,6 +320,7 @@ function stabilizeAndFit(anim=200){
     setTimeout(()=>{ fixAllPositions(true); network.fit({animation:{duration:anim,easingFunction:"easeInOutQuad"}}); setStatus("Listo"); },0);
   },0);
 }
+
 function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
   const label=(personLabel||"").trim(); if(!label) return;
   const pid=`${roleId}_P`;
@@ -288,6 +329,7 @@ function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
   const extra={ font:{ italics:true } }; if(planta) extra.color={ background:"#efe9ff", border:"#7a5cff" };
   mountBox(pid,label,personLevel,extra); addEdge(roleId,pid); openedPersons.add(pid);
 }
+
 function toggleSubroles(roleId,subrolesArr,dataCtx){
   if(!subrolesArr || !subrolesArr.length) return;
   if(openedSubroles.has(roleId)){
@@ -307,6 +349,7 @@ function toggleSubroles(roleId,subrolesArr,dataCtx){
   });
   openedSubroles.add(roleId);
 }
+
 function rewireUnderLeaderIfAny(rootId,roles,leaderIdFromMeta){
   let leaderId=leaderIdFromMeta||null; if(!leaderId){ const cand=roles.find(r=>/^\s*l[ií]der\s*$/i.test(r.name)); leaderId=cand?.id||null; }
   if(!leaderId || !nodes.get(leaderId)) return;
@@ -314,6 +357,7 @@ function rewireUnderLeaderIfAny(rootId,roles,leaderIdFromMeta){
   nodes.update({id:leaderId, level:base+1});
   roles.forEach(r=>{ if(r.id===leaderId) return; try{edges.remove(`${rootId}-${r.id}`);}catch(_){ } addEdge(leaderId,r.id); nodes.update({id:r.id, level:base+2}); });
 }
+
 function refreshButtons(){
   const a=document.getElementById("btnAntes"); const d=document.getElementById("btnDespues");
   a.classList.toggle("active", MODE==="ANTES"); d.classList.toggle("active", MODE==="DESPUÉS");
@@ -321,19 +365,22 @@ function refreshButtons(){
   document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
   a.style.setProperty("--btn-accent","var(--accent)"); d.style.setProperty("--btn-accent","var(--accent)");
 }
+
 function updateCountsUI(){}
 
 async function enrichCountsForOAP(roles){
   if(currentKey!=="oap" || !roles) return;
   const modeKey=(MODE==="ANTES")?"ANTES":"DESPUÉS";
   for(const r of (roles||[])){
-    const base=stripTrailingCount(r.name);
+    const baseLabel=stripTrailingCount(r.name);
     const routeKey=(r.route||"").trim();
     const manual=routeKey? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
-    nodes.update({ id:r.id, label: (typeof manual==="number") ? `${base} (${manual} roles)` : base });
+    if(typeof manual==="number"){ nodes.update({ id:r.id, label:`${baseLabel} (${manual} roles)` }); }
+    else { nodes.update({ id:r.id, label:baseLabel }); }
   }
   buildDottedArcsToTeams(roles);
 }
+
 function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
 function mountOAP(view="DESPUÉS"){
@@ -347,6 +394,7 @@ function mountOAP(view="DESPUÉS"){
   (data.roles||[]).forEach(r=>{ mountBox(r.id,r.name,levelTeams); addEdge(data.id,r.id); });
   updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
 }
+
 function addCountsToNodes(data,overrides){
   if(!data || !data.subroles) return;
   for(const parentId in data.subroles){
@@ -354,9 +402,10 @@ function addCountsToNodes(data,overrides){
     const base=stripTrailingCount(node.label||"");
     const nOverride=overrides && overrides[base];
     const n=(nOverride!=null)?nOverride:data.subroles[parentId].length;
-    nodes.update({ id: parentId, label: `${base} (${n} roles)` });
+    nodes.update({ id:parentId, label:`${base} (${n} roles)` });
   }
 }
+
 function mountTeam(view="DESPUÉS"){
   MODE=view; baseNetworkOptions(); refreshButtons();
   clearAll(); try{nodes.remove(STICKY_ID);}catch(_){}
@@ -391,12 +440,14 @@ async function loadTeam(key){
     orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles:mapRoles(data.after),  subroles:mapSubroles(data.after) };
 
     if(key==="oap"){ const {title,person}=splitTitlePerson(orgAfter.label); if(title) JEFA_LABEL=cleanPhase(title); if(person) JEFA_PERSON=person; }
+
     document.getElementById("title").innerHTML = `Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year">${new Date().getFullYear()}</span>`;
 
     currentKey=key; sel.value=key;
     if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
     setStatus("Listo");
-    if(drawerOpen){ await ensureResumen(); renderResumen(); }
+
+    if(drawerOpen) { await ensureResumen(); renderResumen(); }
   }catch(err){ console.error(err); setStatus("Error al cargar"); alert(`No pude cargar ${DATA_DIR}/${key}.json`); }
 }
 
@@ -432,7 +483,7 @@ network.on("click",(p)=>{
     return;
   }
 
-  // Vista de equipo
+  // vista equipo
   const data=(MODE==="ANTES")?orgBefore:orgAfter;
 
   if(id===TEAM_ROOT_ID){
@@ -453,7 +504,8 @@ network.on("click",(p)=>{
     const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
     if(role.id===CURRENT_LEADER_ID){
       const sid=`${role.id}_S`;
-      if(sidePersons.has(sid)){ removeSidePerson(role.id); } else { placeSidePersonFor(role.id,(role.person||"Nuevo perfil"),SIDE_OFFSET); }
+      if(sidePersons.has(sid)){ removeSidePerson(role.id); }
+      else { placeSidePersonFor(role.id,(role.person||"Nuevo perfil"),SIDE_OFFSET); }
       const arr=data.subroles?.[role.id]; if(arr && arr.length) toggleSubroles(role.id,arr,data);
     }else{
       togglePersonNode(role.id,role.person,3,!!role.planta);
@@ -466,10 +518,11 @@ network.on("click",(p)=>{
   if(nested && nested.length){ toggleSubroles(id,nested,data); stabilizeAndFit(120); return; }
 });
 
-/* ===== Drawer: Resumen ===== */
-let resumenData=null, drawerOpen=false;
+/* ======== Drawer: Resumen ======== */
+let resumenData=null;
+let drawerOpen=false;
 let resumenMode='DESPUÉS'; // 'ANTES' | 'DESPUÉS' | 'COMPARAR'
-let includeSubs=false;       // por defecto APAGADO (como pediste)
+let includeSubs=false;      // por defecto sin subdividir
 
 async function ensureResumen(){
   if(resumenData) return resumenData;
@@ -477,82 +530,136 @@ async function ensureResumen(){
   resumenData=await res.json();
   return resumenData;
 }
-function fmt(n){ return (n===null || n===undefined || Number.isNaN(n)) ? '—' : String(n); }
+
+/* posiciona el drawer bajo el header */
+function positionDrawer(){
+  const header = document.getElementById('appHeader');
+  const top = header.getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--drawer-top', `${top}px`);
+}
+
+function setPillColor(){
+  const root = document.documentElement;
+  if(resumenMode==='ANTES') root.style.setProperty('--pill-active', 'var(--bar-before)');
+  else if(resumenMode==='DESPUÉS') root.style.setProperty('--pill-active', 'var(--bar-after)');
+  else root.style.setProperty('--pill-active', 'var(--bar-after)'); /* comparar: deja morado */
+}
+
+function togglePillsUI(){
+  document.getElementById('pillAntes').classList.toggle('active', resumenMode==='ANTES');
+  document.getElementById('pillDespues').classList.toggle('active', resumenMode==='DESPUÉS');
+  document.getElementById('pillComparar').classList.toggle('active', resumenMode==='COMPARAR');
+  document.getElementById('legend').style.display = (resumenMode==='COMPARAR') ? 'flex' : 'none';
+  setPillColor();
+}
+
+function rowsForScope(){
+  const keys = (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey];
+  const rows=[];
+  keys.forEach(k=>{
+    const e=resumenData.equipos[k]; if(!e) return;
+    rows.push({ label:e.label||k, a:e.antes?.total||0, d:e.despues?.total||0, isGroup:true, subs:e.subdivisiones||[] });
+    if(includeSubs && Array.isArray(e.subdivisiones)){
+      e.subdivisiones.forEach(s=> rows.push({ label:"• "+s.label, a:s.antes||0, d:s.despues||0, isGroup:false, isSub:true }));
+    }
+  });
+  return rows;
+}
 
 function renderResumen(){
   if(!resumenData) return;
   const chart=document.getElementById('chart');
-  const legend=document.getElementById('legend');
-  legend.style.display = (resumenMode==='COMPARAR') ? 'flex' : 'none';
+  const tableWrap=document.getElementById('tableWrap');
 
-  const keys = (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey];
-
-  let rows=[];
-  keys.forEach(k=>{
-    const e=resumenData.equipos[k]; if(!e) return;
-    rows.push({ label:e.label||k, a:e.antes?.total||0, d:e.despues?.total||0, isGroup:true });
-    if(includeSubs && Array.isArray(e.subdivisiones)){
-      e.subdivisiones.forEach(s=>{
-        // Evita duplicados exactos (a veces una subdivisión se llama igual al grupo)
-        if(String(s.label||'').trim().toLowerCase() === String(e.label||'').trim().toLowerCase()) return;
-        rows.push({ label:s.label, a:s.antes||0, d:s.despues||0, isGroup:false });
-      });
-    }
-  });
-
+  const rows = rowsForScope();
   const maxVal = Math.max(...rows.map(r => Math.max(r.a, r.d, 1)));
+
+  // BARRAS
   let out='';
   rows.forEach(r=>{
-    const cls = r.isGroup ? 'row' : 'row sub';
+    const cls = r.isSub ? 'row sub' : 'row';
     const aw = Math.round((r.a/maxVal)*100);
     const dw = Math.round((r.d/maxVal)*100);
+    const oneMode = (resumenMode!=='COMPARAR');
     out += `<div class="${cls}">
       <div class="label">${r.label}</div>
-      ${resumenMode==='COMPARAR'
-        ? `<div class="track compare">
-             <div class="fill before" style="width:${aw}%"><span>A ${fmt(r.a)}</span></div>
-             <div class="fill after"  style="width:${dw}%"><span>D ${fmt(r.d)}</span></div>
-           </div>`
-        : `<div class="track">
+      ${oneMode
+        ? `<div class="track">
              <div class="fill ${resumenMode==='ANTES'?'before':'after'}" style="width:${resumenMode==='ANTES'?aw:dw}%">
-               <span>${resumenMode==='ANTES'?'A':'D'} ${fmt(resumenMode==='ANTES'?r.a:r.d)}</span>
+               <span>${resumenMode==='ANTES'?'A':'D'} ${resumenMode==='ANTES'?r.a:r.d}</span>
              </div>
+           </div>`
+        : `<div class="track compare">
+             <div class="fill before" style="width:${aw}%">A ${r.a}</div>
+             <div class="fill after"  style="width:${dw}%">D ${r.d}</div>
            </div>`
       }
     </div>`;
   });
   chart.innerHTML = out;
+
+  // TABLA INFERIOR
+  let th = (resumenMode==='COMPARAR')
+            ? `<th>Antes</th><th>Después</th>`
+            : `<th>${resumenMode==='ANTES'?'Antes':'Después'}</th>`;
+  let tbody='';
+  rows.forEach(r=>{
+    tbody += `<tr>
+      <td class="left">${r.label}</td>
+      ${resumenMode==='COMPARAR'
+        ? `<td>${r.a}</td><td>${r.d}</td>`
+        : `<td>${resumenMode==='ANTES'?r.a:r.d}</td>`}
+    </tr>`;
+  });
+
+  tableWrap.innerHTML = `
+    <table class="summary-table">
+      <thead>
+        <tr><th class="left">Equipos / subdivisiones</th>${th}</tr>
+      </thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
 }
 
 /* abrir/cerrar */
 const drawer = document.getElementById('drawer');
-document.getElementById('openSummary').addEventListener('click', async ()=>{
-  syncHeaderOffset();
+function openDrawer(){
+  positionDrawer();
   drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); drawerOpen=true;
-  await ensureResumen(); renderResumen();
-});
-document.getElementById('closeDrawer').addEventListener('click', ()=>{
+}
+function closeDrawer(){
   drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); drawerOpen=false;
+}
+
+document.getElementById('openSummary').addEventListener('click', async ()=>{
+  openDrawer();
+  await ensureResumen();
+  togglePillsUI();
+  renderResumen();
 });
+document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && drawerOpen) closeDrawer(); });
+window.addEventListener('resize', ()=>{ if(drawerOpen) positionDrawer(); });
 
 /* controles del drawer */
-function syncPills(){
-  document.getElementById('pillAntes').classList.toggle('active', resumenMode==='ANTES');
-  document.getElementById('pillDespues').classList.toggle('active', resumenMode==='DESPUÉS');
-  document.getElementById('pillComparar').classList.toggle('active', resumenMode==='COMPARAR');
-  document.getElementById('pillSubdiv').classList.toggle('active', includeSubs);
-}
-document.getElementById('pillAntes').addEventListener('click', ()=>{ resumenMode='ANTES';    syncPills(); renderResumen(); });
-document.getElementById('pillDespues').addEventListener('click', ()=>{ resumenMode='DESPUÉS'; syncPills(); renderResumen(); });
-document.getElementById('pillComparar').addEventListener('click', ()=>{ resumenMode='COMPARAR'; syncPills(); renderResumen(); });
-document.getElementById('pillSubdiv').addEventListener('click', ()=>{ includeSubs=!includeSubs; syncPills(); renderResumen(); });
+document.getElementById('pillAntes').addEventListener('click', ()=>{ resumenMode='ANTES'; togglePillsUI(); renderResumen(); });
+document.getElementById('pillDespues').addEventListener('click', ()=>{ resumenMode='DESPUÉS'; togglePillsUI(); renderResumen(); });
+document.getElementById('pillComparar').addEventListener('click', ()=>{ resumenMode='COMPARAR'; togglePillsUI(); renderResumen(); });
 
-/* cambios de equipo / modo */
+const pillSubs = document.getElementById('pillSubs');
+pillSubs.addEventListener('click', ()=>{
+  includeSubs = !includeSubs;
+  pillSubs.classList.toggle('active', includeSubs);
+  pillSubs.setAttribute('aria-pressed', includeSubs ? 'true' : 'false');
+  renderResumen();
+});
+
+/* ======== cambios de equipo / modo ======== */
 sel.addEventListener("change", async e=>{ await loadTeam(e.target.value); if(drawerOpen){ await ensureResumen(); renderResumen(); } });
-document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES");   if(drawerOpen){ resumenMode='ANTES'; syncPills(); renderResumen(); } };
-document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); if(drawerOpen){ resumenMode='DESPUÉS'; syncPills(); renderResumen(); } };
+document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
+document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
-/* carga inicial */
+/* ===== carga inicial ===== */
 loadTeam("oap");
 </script>
 </body>
