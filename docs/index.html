@@ -44,29 +44,22 @@
 
   <script>
     /****************** CONFIG GENERAL ******************/
-    // Si publicas en GitHub Pages con carpeta /docs, deja los JSON en /docs/data/
-    // y este archivo como /docs/index.html
-    const DATA_DIR = "data"; // ajusta si fuera necesario
+    const DATA_DIR = "data";
 
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
 
-    // Niveles requeridos:
-    // 0: Jefa (sticky root)
-    // 1: Equipos principales (en OAP) / Nodo del equipo bajo Jefa en vista de equipo
-    // 2: Líder (intermedio)
-    // 3: Otros roles (hermanos del líder)
-    // 4: Subroles
-    // 5: Personas de subroles
-    const LEVEL_Y_GAP = 130;   // separación vertical
-    const MIN_GAP = 300;       // separación horizontal mínima entre hermanos
+    // Niveles:
+    // 0: Jefa   | 1: Equipo | 2: Líder | 3: Otros roles | 4: Subroles | 5: Personas de subroles
+    const LEVEL_Y_GAP = 130;
+    const MIN_GAP = 300;
 
     let currentKey = "oap";
     let MODE = "DESPUÉS"; // ANTES o DESPUÉS
     let orgBefore = null, orgAfter = null;
 
     let JEFA_LABEL = "Jefa OAP";
-    let JEFA_PERSON = ""; // puedes setear si quieres que muestre persona de la jefa
+    let JEFA_PERSON = "";
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
@@ -89,7 +82,7 @@
           edgeMinimization:true,
           sortMethod:"directed"
         }},
-        physics:false, // física desactivada SIEMPRE
+        physics:false,
         nodes:{
           shape:"box", margin:10, borderWidth:1,
           color:{ background:"#fff", border:"#9aa3af" },
@@ -150,12 +143,17 @@
       return (n && typeof n.level === 'number') ? n.level : null;
     }
 
+    // NUEVO: devolver subroles de cualquier nodo (roles o subroles)
+    function getSubrolesArr(data, nodeId){
+      return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null;
+    }
+
     /****************** ESPACIADO Y FIJACIÓN ******************/
     function applyVerticalByLevel(y0=0){
       const all = nodes.get();
       nodes.update(all.map(n => {
         const level = (typeof n.level==='number') ? n.level : null;
-        if(level===null) return { id:n.id }; // no tocar
+        if(level===null) return { id:n.id };
         return { id:n.id, y: y0 + level*LEVEL_Y_GAP };
       }));
     }
@@ -265,7 +263,6 @@
     }
 
     /****************** RE-CABLEO BAJO LÍDER ******************/
-    // Pone al líder en nivel 2, y reconecta los demás roles bajo él (nivel 3).
     function rewireUnderLeaderIfAny(rootId, roles, leaderIdFromMeta){
       let leaderId = leaderIdFromMeta || null;
       if(!leaderId){
@@ -319,10 +316,8 @@
       JEFA_LABEL = title || JEFA_LABEL;
       if(person) JEFA_PERSON = person;
 
-      // Nivel 0: Jefa
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Nivel 1: Equipos
       (data.roles || []).forEach(r=>{
         mountBox(r.id, r.name, 1);
         addEdge(data.id, r.id);
@@ -333,6 +328,18 @@
       stabilizeAndFit(160);
     }
 
+    // Opcional: añadir "(n roles)" a nodos que son padres en subroles
+    function addCountsToNodes(data){
+      if(!data || !data.subroles) return;
+      for(const parentId in data.subroles){
+        const node = nodes.get(parentId);
+        if(!node) continue;
+        const n = data.subroles[parentId].length;
+        const base = String(node.label||"").replace(/\s*\(\d+\s+roles?\)\s*$/,'').trim();
+        nodes.update({ id: parentId, label: `${base} (${n} roles)` });
+      }
+    }
+
     function mountTeam(view="DESPUÉS"){
       MODE = view;
       applyTheme();
@@ -341,22 +348,21 @@
 
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
-      // Nivel 0: Jefa (sticky root)
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Nivel 1: Equipo
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 1);
       addEdge(STICKY_ID, TEAM_ROOT_ID);
 
-      // Nivel 2: Roles (luego rewire moverá bajo líder si aplica)
       (data.roles || []).forEach(r=>{
         mountBox(r.id, r.name, 2);
         addEdge(TEAM_ROOT_ID, r.id);
       });
 
-      // Re-cablear bajo líder (nivel 2 líder, resto nivel 3)
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
+
+      // Mostrar "(n roles)" en contenedores como SIMISIONAL/PANDORA (no afecta a otros si no tienen hijos)
+      addCountsToNodes(data);
 
       updateCountsUI();
       stabilizeAndFit(160);
@@ -432,7 +438,6 @@
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
         if(id===data.id){
-          // raíz: toggle primer nivel
           if(expandedRoot.has(data.id)){
             (data.roles||[]).forEach(r=>{
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
@@ -452,14 +457,12 @@
           }
         }
 
-        // clic en equipo dentro de OAP abre su subdiagrama
         const role = (data.roles||[]).find(r=>r.id===id);
         if(role && role.route){
           loadTeam(role.route);
           return;
         }
 
-        // (Opcional) clic en un rol directo bajo OAP
         if(role && !role.route){
           nodes.update({ id: role.id, level: 2 });
           togglePersonNode(role.id, role.person, 3, !!role.planta);
@@ -468,7 +471,7 @@
         return;
       }
 
-      // Vista de equipo (con sticky root)
+      // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
       if(id===STICKY_ID){
@@ -478,7 +481,6 @@
       }
 
       if(id===TEAM_ROOT_ID){
-        // expandir/colapsar todos los roles del equipo
         if(expandedRoot.has(TEAM_ROOT_ID)){
           (data.roles||[]).forEach(r=>{
             const pid = `${r.id}_P`;
@@ -512,13 +514,22 @@
         return;
       }
 
-      // clic en rol dentro del equipo
+      // clic en rol dentro del equipo (primer nivel bajo equipo o bajo líder)
       const role = (data.roles||[]).find(r=>r.id===id);
       if(role){
         togglePersonNode(role.id, role.person, 3, !!role.planta);
         const arr = data.subroles?.[role.id];
         if(arr && arr.length) toggleSubroles(role.id, arr);
         stabilizeAndFit(120);
+        return;
+      }
+
+      // NUEVO: permitir expandir nodos intermedios que también son padres (SIMISIONAL, PANDORA, etc.)
+      const nested = getSubrolesArr(data, id);
+      if (nested && nested.length){
+        toggleSubroles(id, nested);
+        stabilizeAndFit(120);
+        return;
       }
     });
 
