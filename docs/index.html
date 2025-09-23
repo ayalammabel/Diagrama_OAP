@@ -86,6 +86,7 @@
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
 
+    /* Conteos fijos pedidos */
     const OAP_FIXED_COUNTS = {
       AFTER: { "4P":8, "Administrativo":6, "Administrativos":6, "Gestión del Conocimiento":2, "MIPG":6, "TI":19 },
       BEFORE:{ "4P":6, "Administrativo":8, "Administrativos":8, "MIPG":8, "TI":20 }
@@ -105,8 +106,13 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    const STRATEGIST_ID = "OAP_STRATEGIST"; // Analista estratégica
-    let STRATEGIST = null;                  // {label, person}
+    /* Analista estratégica */
+    const STRATEGIST_ID = "OAP_STRATEGIST";
+    let STRATEGIST = null; // {label, person}
+
+    /* Anclas para que NO se muevan al alternar */
+    let ROOT_ANCHOR_X = 0;       // jefa al centro
+    let STRAT_ANCHOR_X = 0;      // analista justo debajo
 
     const SIDE_OFFSET = 220;
     const JEFA_SIDE_OFFSET = 220;
@@ -124,8 +130,8 @@
     const openedSubroles = new Set();
     const sidePersons   = new Set();
 
-    /* ENLACES PUNTEADOS Analista → Equipos */
-    const strategistTeamLinks = new Set();
+    /* IDs de las líneas punteadas estratega → equipos */
+    const dottedArcIds = new Set();
 
     function baseOptions(){
       return {
@@ -151,15 +157,11 @@
       return m ? { title:m[1].trim(), person:m[2].trim() } : { title:base, person:"" };
     }
 
-    function clearAll(){
-      nodes.clear(); edges.clear();
-      expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear();
-      strategistTeamLinks.clear();
-    }
+    function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear(); }
     function mountBox(id, label, level, extra={}){ nodes.add(Object.assign({ id, label, level, shape:"box", color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
-    function addEdge(from, to, idOverride){
-      const id = idOverride || `${from}-${to}`;
-      if(!edges.get(id)) edges.add({ id, from, to });
+    function addEdge(from, to, extra={}){
+      const id = `${from}-${to}`;
+      if(!edges.get(id)) edges.add(Object.assign({ id, from, to }, extra));
       return id;
     }
     function getLevel(nodeId){ const n = nodes.get(nodeId); return (n && typeof n.level === 'number') ? n.level : null; }
@@ -185,7 +187,7 @@
       openedSubroles.delete(nodeId);
     }
 
-    /* Fijar Y por nivel (para mantener vertical coherente) */
+    /* ------ Layout helpers ------ */
     function applyVerticalByLevel(y0=0){
       const all = nodes.get();
       nodes.update(all.map(n =>
@@ -213,21 +215,14 @@
     function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
 
-    /* Mantener Analista centrada bajo la Jefa */
-    function keepStrategistCentered(chiefId, strategistId){
-      if(!nodes.get(chiefId) || !nodes.get(strategistId)) return;
-      const pos = network.getPositions([chiefId])[chiefId];
-      nodes.update({ id: strategistId, x: pos.x, y: pos.y + LEVEL_Y_GAP, level: 1 });
-    }
-
+    /* Mantener etiquetas laterales */
     function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
       const rootNode = nodes.get(rootId); if(!rootNode) return;
       if (!nodes.get(sid)){
         mountBox(sid, label.trim(), rootNode.level, { font:{ italics:true } });
-        addEdge(rootId, sid);
-        try{ edges.update({ id:`${rootId}-${sid}`, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } }); }catch(_){}
+        addEdge(rootId, sid, { dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } });
         sidePersons.add(sid);
       }
       const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
@@ -243,26 +238,25 @@
     function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
     function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
 
-    /* Enlaces punteados Analista → Equipos */
-    function removeStrategistTeamLinks(){
-      strategistTeamLinks.forEach(id => { try{ edges.remove(id);}catch(_){ } });
-      strategistTeamLinks.clear();
+    /* Dotted bridges strategist → teams */
+    function clearDottedArcs(){
+      dottedArcIds.forEach(id => { try{ edges.remove(id);}catch(_){} });
+      dottedArcIds.clear();
     }
-    function linkStrategistToTeams(roles){
-      if (!nodes.get(STRATEGIST_ID) || !roles || !roles.length) return;
-      removeStrategistTeamLinks();
-      roles.forEach(r=>{
-        const eid = addEdge(STRATEGIST_ID, r.id, `STRAT-${r.id}`);
-        strategistTeamLinks.add(eid);
-        // >>> AQUÍ EL AJUSTE DE FORMA <<<
-        try{
-          edges.update({
-            id: eid,
-            dashes: true,
-            color: { color: '#94a3b8' },
-            smooth: { enabled:true, type:'horizontal', forceDirection:'vertical' } // igual que las demás
-          });
-        }catch(_){}
+    function buildDottedArcsToTeams(roles){
+      clearDottedArcs();
+      if (!STRATEGIST || !STRATEGIST.label || !nodes.get(STRATEGIST_ID)) return;
+      (roles||[]).forEach(r=>{
+        if(!nodes.get(r.id)) return;
+        const id = `DOT_${STRATEGIST_ID}_${r.id}`;
+        edges.add({
+          id, from: STRATEGIST_ID, to: r.id,
+          dashes: true, arrows: '',
+          color: {color:'#7a7a7a'},
+          width: 1.5,
+          smooth: { enabled:true, type:'horizontal', forceDirection:'vertical', roundness:0.35 }
+        });
+        dottedArcIds.add(id);
       });
     }
 
@@ -270,17 +264,17 @@
       setStatus("Ajustando layout…");
       unfixAllPositions();
       applyVerticalByLevel(0);
+
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
 
-        if (currentKey === "oap" && nodes.get(STRATEGIST_ID)) {
-          const rootId = (MODE==="ANTES") ? orgBefore.id : orgAfter.id;
-          keepStrategistCentered(rootId, STRATEGIST_ID);
+        /* anclas: jefa y analista al centro, siempre */
+        if (currentKey === 'oap'){
+          if (nodes.get(orgAfter?.id || orgBefore?.id)) { nodes.update({ id:(MODE==="ANTES"?orgBefore.id:orgAfter.id), x: ROOT_ANCHOR_X }); }
+          if (nodes.get(STRATEGIST_ID)) { nodes.update({ id: STRATEGIST_ID, x: STRAT_ANCHOR_X }); }
+          keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
+          if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, SIDE_OFFSET);
         }
-
-        if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
-        else keepJefaPersonSideAlignedFor(STICKY_ID);
-        Array.from(sidePersons).forEach(sid => keepSideAligned(sid.replace(/_S$/,''), SIDE_OFFSET));
 
         setTimeout(() => {
           fixAllPositions(true);
@@ -368,12 +362,10 @@
     function refreshButtons(){
       const a = document.getElementById("btnAntes");
       const d = document.getElementById("btnDespues");
-      a.classList.toggle("active", MODE==="ANTES");
-      d.classList.toggle("active", MODE==="DESPUÉS");
+      a.classList.toggle("active", MODE==="ANTES"); d.classList.toggle("active", MODE==="DESPUÉS");
       document.body.classList.toggle("mode-antes",   MODE==="ANTES");
       document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
-      a.style.setProperty("--btn-accent","var(--accent)");
-      d.style.setProperty("--btn-accent","var(--accent)");
+      a.style.setProperty("--btn-accent","var(--accent)"); d.style.setProperty("--btn-accent","var(--accent)");
     }
 
     function updateCountsUI(){}
@@ -394,6 +386,8 @@
           nodes.update({ id:r.id, label:`${base} (${n} roles)` });
         }catch(_){}
       }
+      /* reconstruye arcos punteados */
+      buildDottedArcsToTeams(roles);
     }
 
     function baseNetworkOptions(){ network.setOptions(baseOptions()); }
@@ -405,28 +399,27 @@
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
 
-      // Nivel 0: Jefa
+      /* Nivel 0: Jefa centrada */
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
+      nodes.update({ id:data.id, x: ROOT_ANCHOR_X });
 
-      // Nivel 1: Analista estratégica
+      /* Nivel 1: Analista (si existe) centrada bajo Jefa */
       const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
       if (hasStrategist){
         mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
         addEdge(data.id, STRATEGIST_ID);
-        keepStrategistCentered(data.id, STRATEGIST_ID);
+        nodes.update({ id: STRATEGIST_ID, x: STRAT_ANCHOR_X });
       }
 
-      // Nivel 2 (si hay analista) o 1 (si no) para equipos
+      /* Nivel 2 (si hay analista) o 1 (si no) para equipos */
       const levelTeams = hasStrategist ? 2 : 1;
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
 
-      // Enlaces punteados Analista → Equipos
-      if (hasStrategist) linkStrategistToTeams(data.roles);
-
-      updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
+      updateCountsUI();
+      enrichCountsForOAP(data.roles);
+      stabilizeAndFit(160);
     }
 
-    // Roles dentro de un equipo
     function addCountsToNodes(data, overrides){
       if(!data || !data.subroles) return;
       for(const parentId in data.subroles){
@@ -443,6 +436,7 @@
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
+
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 1); addEdge(STICKY_ID, TEAM_ROOT_ID);
 
@@ -481,7 +475,7 @@
 
         LEADER_NODE_ID = data.meta?.leaderId ? `${prefix}_${data.meta.leaderId}` : null;
 
-        // Estratega desde meta
+        /* estratega desde meta */
         STRATEGIST = data.meta?.strategist
           ? { label: (data.meta.strategist.label||"").trim(), person: (data.meta.strategist.person||"").trim() }
           : null;
@@ -508,7 +502,7 @@
       }
     }
 
-    /* Interacción */
+    /* -------- Interacción -------- */
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -516,7 +510,7 @@
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-        // Clic en Jefa
+        /* click en Jefa */
         if(id===data.id){
           const sid = `${data.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
@@ -528,60 +522,63 @@
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
-            // quitar enlaces punteados y la tarjeta de la analista
-            removeStrategistTeamLinks();
+            /* retirar estratega si estaba */
             if (nodes.get(STRATEGIST_ID)){
               removePerson(STRATEGIST_ID);
               try{ edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){}
               try{ nodes.remove(STRATEGIST_ID);}catch(_){}
             }
+            clearDottedArcs();
             expandedRoot.delete(data.id);
           }else{
-            if (STRATEGIST && STRATEGIST.label){
-              if(!nodes.get(STRATEGIST_ID)){
-                mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
-                addEdge(data.id, STRATEGIST_ID);
-                keepStrategistCentered(data.id, STRATEGIST_ID);
-              }
+            /* reponer estratega centrada si existe */
+            if (STRATEGIST && STRATEGIST.label && !nodes.get(STRATEGIST_ID)){
+              mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
+              addEdge(data.id, STRATEGIST_ID);
+              nodes.update({ id: STRATEGIST_ID, x: STRAT_ANCHOR_X });
             }
             const levelTeams = (STRATEGIST && STRATEGIST.label) ? 2 : 1;
             (data.roles||[]).forEach(r=>{
               if(!nodes.get(r.id)) mountBox(r.id, r.name, levelTeams);
               addEdge(data.id, r.id);
             });
-            // volver a crear los punteados
-            if (STRATEGIST && STRATEGIST.label) linkStrategistToTeams(data.roles);
-
+            buildDottedArcsToTeams(data.roles);
             expandedRoot.add(data.id);
           }
           stabilizeAndFit(120);
           return;
         }
 
-        // Clic en Analista estratégica -> nombre lateral (no toca punteados)
+        /* click en Analista estratégica: solo nombre lateral */
         if (id === STRATEGIST_ID){
-          const sid = `${STRATEGIST_ID}_S`;
-          if (sidePersons.has(sid)){ removeSidePerson(STRATEGIST_ID); }
-          else { placeSidePersonFor(STRATEGIST_ID, STRATEGIST?.person || "", SIDE_OFFSET); }
+          togglePersonNode(STRATEGIST_ID, STRATEGIST?.person || "", 2, false);
+          /* mantener centrado */
+          nodes.update({ id: STRATEGIST_ID, x: STRAT_ANCHOR_X });
           stabilizeAndFit(120);
           return;
         }
 
-        // Clic en equipo (rol de primer nivel)
+        /* click en equipo raíz de OAP */
         const role = (data.roles||[]).find(r=>r.id===id);
         if(role && role.route){ loadTeam(role.route); return; }
-        if(role && !role.route){ nodes.update({ id: role.id, level: 2 }); togglePersonNode(role.id, role.person, 3, !!role.planta); stabilizeAndFit(120); }
+        if(role && !role.route){ nodes.update({ id: role.id, level: getLevel(role.id)??2 }); togglePersonNode(role.id, role.person, 3, !!role.planta); stabilizeAndFit(120); }
         return;
       }
 
-      // Vista de equipo
+      /* Vista equipo */
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
+
+      if(id===STICKY_ID){
+        const sid = `${STICKY_ID}_S`;
+        if (sidePersons.has(sid)){ removeSidePerson(STICKY_ID); } else { placeSidePersonForJefa(STICKY_ID); }
+        stabilizeAndFit(120);
+        return;
+      }
 
       if(id===TEAM_ROOT_ID){
         if(expandedRoot.has(TEAM_ROOT_ID)){
           (data.roles||[]).forEach(r=>{
-            closeSubtree(r.id, data);
-            removePerson(r.id); removeSidePerson(r.id);
+            closeSubtree(r.id, data); removePerson(r.id); removeSidePerson(r.id);
             try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
             try{ nodes.remove(r.id);}catch(_){}
           });
@@ -601,7 +598,6 @@
           const sid = `${role.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(role.id); }
           else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
-
           const arr = data.subroles?.[role.id];
           if(arr && arr.length) toggleSubroles(role.id, arr, data);
         }else{
