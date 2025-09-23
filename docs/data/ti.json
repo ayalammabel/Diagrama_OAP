@@ -1,82 +1,61 @@
-{
-  "meta": { "equipo": "TI", "titulo": "Tecnología de la Información" },
 
+{
+  "meta": {
+    "equipo": "TI",
+    "titulo": "Tecnologías de la Información",
+    "leaderId": "A_ARQ_SOL"
+  },
   "before": {
     "label": "TI – ANTES",
-    "roles": [
-      { "id": "B_LIDER",     "name": "Líder TI",                         "person": "José Leonardo Buitrago", "planta": true },
-      { "id": "B_DBA",       "name": "DBA",                              "person": "Gleidy Jerez" },
-      { "id": "B_ORFEO",     "name": "Desarrollo Orfeo",                 "person": "Javier García" },
-      { "id": "B_PAND_LID",  "name": "Líder Pandora",                    "person": "Camilo Calderón" },
-      { "id": "B_PAND_DEV1", "name": "Desarrollo Pandora",               "person": "Santiago Carreño" },
-      { "id": "B_PAND_DEV2", "name": "Desarrollo Pandora",               "person": "Laura Cruz" },
-      { "id": "B_INF_LID",   "name": "Líder infraestructura y soporte",  "person": "Miguel Bernal", "planta": true },
-      { "id": "B_INF_AI1",   "name": "Apoyo infraestructura",            "person": "Fabián Puentes" },
-      { "id": "B_INF_AI2",   "name": "Apoyo infraestructura",            "person": "Oscar Carvajal" },
-      { "id": "B_INF_AI3",   "name": "Apoyo infraestructura",            "person": "Jorge Escalante" },
-      { "id": "B_SUP_AS1",   "name": "Apoyo Soporte",                    "person": "Carlos Moreno" },
-      { "id": "B_SUP_AS2",   "name": "Apoyo Soporte",                    "person": "Leonardo Becerra" },
-      { "id": "B_SUP_AS3",   "name": "Apoyo Soporte",                    "person": "John Ventura" },
-      { "id": "B_SEC_LID",   "name": "Líder Seguridad",                  "person": "Camilo Calderón" },
-      { "id": "B_SIM_LID",   "name": "Líder SIMISIONAL",                 "person": "Yamile Reyes" },
-      { "id": "B_DEV1",      "name": "Desarrollo",                       "person": "Mauricio Rincón" },
-      { "id": "B_DEV2",      "name": "Desarrollo",                       "person": "Steven Aroca" },
-      { "id": "B_DEV3",      "name": "Desarrollo",                       "person": "Fabián Acevedo" }
-    ]
+    "roles": []
   },
-
   "after": {
     "label": "TI – DESPUÉS",
     "roles": [
-      { "id": "A_LIDER",  "name": "Líder TI",                        "person": "José Leonardo Buitrago", "planta": true },
-      { "id": "A_INFRA",  "name": "Infraestructura y soporte (8)",   "person": "Miguel Bernal", "planta": true },
-      { "id": "A_SIM",    "name": "SIMISIONAL (4)",                  "person": "Luz Yamile Reyes" },
-      { "id": "A_PAND",   "name": "PANDORA (3)",                     "person": "" },
-      { "id": "A_ICOPS",  "name": "ICOPS (1)",                       "person": "" },
-      { "id": "A_ORFEO",  "name": "ORFEO (1)",                       "person": "" },
-      { "id": "A_KAWAK",  "name": "KAWAK (1)",                       "person": "" },
-      { "id": "A_FURAG",  "name": "FURAG (1)",                       "person": "" }
+      { "id": "A_ARQ_SOL", "name": "Arquitecto de Soluciones (Líder)", "person": "Nuevo perfil" },
+      { "id": "A_INFRA", "name": "Infraestructura y soporte", "person": "" },
+      { "id": "A_DEV", "name": "Equipo de Desarrolladores", "person": "" }
     ],
-
     "subroles": {
       "A_INFRA": [
-        { "id": "SR_INF_AI1", "name": "Apoyo infraestructura", "person": "Fabián Puentes" },
-        { "id": "SR_INF_AI2", "name": "Apoyo infraestructura", "person": "Oscar Carvajal" },
-        { "id": "SR_INF_AI3", "name": "Apoyo infraestructura", "person": "Jorge Escalante" },
-        { "id": "SR_INF_AS1", "name": "Apoyo soporte",         "person": "Carlos Moreno" },
-        { "id": "SR_INF_AS2", "name": "Apoyo soporte",         "person": "Leonardo Becerra" },
-        { "id": "SR_INF_AS3", "name": "Apoyo soporte",         "person": "John Ventura" },
-        { "id": "SR_INF_AD1", "name": "Admin infraestructura", "person": "Nuevo perfil" },
-        { "id": "SR_INF_AD2", "name": "Admin infraestructura", "person": "Nuevo perfil" }
+        { "id": "SR_INF_JE", "name": "Apoyo Infraestructura", "person": "Jorge Escalante" },
+        { "id": "SR_INF_OC", "name": "Apoyo Infraestructura", "person": "Oscar Carvajal" },
+        { "id": "SR_INF_FP", "name": "Apoyo Infraestructura", "person": "Fabián Puentes" },
+        { "id": "SR_INF_NP", "name": "Apoyo Infraestructura", "person": "Nuevo perfil" },
+        { "id": "SR_SUP_CM", "name": "Apoyo a Soporte", "person": "Carlos Moreno" },
+        { "id": "SR_SUP_LB", "name": "Apoyo a Soporte", "person": "Leonardo Becerra" },
+        { "id": "SR_SUP_JV", "name": "Apoyo a Soporte", "person": "John Ventura" }
       ],
-
-      "A_SIM": [
-        { "id": "SR_SIM_ANA", "name": "Analista (Levantamiento de Requerimientos)", "person": "Luz Yamile Reyes" },
-        { "id": "SR_SIM_DBA", "name": "DBA",                                        "person": "Giovanny Benítez" },
-        { "id": "SR_SIM_FE",  "name": "Frontend",                                   "person": "Fabián Acevedo" },
-        { "id": "SR_SIM_BE",  "name": "Backend",                                    "person": "Steven Aroca" }
+      "A_DEV": [
+        { "id": "DEV_SIMISIONAL", "name": "SIMISIONAL", "person": "" },
+        { "id": "DEV_PANDORA", "name": "PANDORA", "person": "" },
+        { "id": "DEV_ICOPS", "name": "ICOPS", "person": "" },
+        { "id": "DEV_ORFEO", "name": "ORFEO", "person": "" },
+        { "id": "DEV_KAWAK", "name": "KAWAK", "person": "" },
+        { "id": "DEV_FURAG", "name": "FURAG", "person": "" }
       ],
-
-      "A_PAND": [
-        { "id": "SR_PAND_FS",  "name": "Full stack",     "person": "Nuevo Perfil" },
-        { "id": "SR_PAND_DBA", "name": "DBA",            "person": "Nuevo Perfil" },
-        { "id": "SR_PAND_DEV", "name": "Desarrollador",  "person": "Gleidy Jerez" }
+      "DEV_SIMISIONAL": [
+        { "id": "SR_SIM_ANAL", "name": "Analista (Levantamiento de Requerimientos)", "person": "Luz Yamile Reyes" },
+        { "id": "SR_SIM_DBA", "name": "DBA", "person": "Giovanny Benitez" },
+        { "id": "SR_SIM_FE", "name": "Frontend", "person": "Favian Acevedo" },
+        { "id": "SR_SIM_BE", "name": "Backend", "person": "Steven Aroca" }
       ],
-
-      "A_ICOPS": [
-        { "id": "SR_ICOPS_1", "name": "Desarrolladora", "person": "Laura Gómez" }
+      "DEV_PANDORA": [
+        { "id": "SR_PAN_FS", "name": "Full stack", "person": "Nuevo perfil" },
+        { "id": "SR_PAN_DBA", "name": "DBA", "person": "Nuevo perfil" },
+        { "id": "SR_PAN_DEV", "name": "Desarrollador", "person": "Gledy Jerez" }
       ],
-
-      "A_ORFEO": [
-        { "id": "SR_ORFEO_1", "name": "Desarrollador", "person": "Nuevo Perfil" }
+      "DEV_ICOPS": [
+        { "id": "SR_ICO_DEV", "name": "Desarrolladora", "person": "Laura Gómez" }
       ],
-
-      "A_KAWAK": [
-        { "id": "SR_KAWAK_1", "name": "Pendiente", "person": "" }
+      "DEV_ORFEO": [
+        { "id": "SR_ORF_DEV", "name": "Desarrollador", "person": "Nuevo perfil" }
       ],
-
-      "A_FURAG": [
-        { "id": "SR_FURAG_1", "name": "Responsable", "person": "José Leonardo Buitrago", "planta": true }
+      "DEV_KAWAK": [
+        { "id": "SR_KAW_PEN", "name": "Pendiente", "person": "Jose Leonardo Buitrago" }
+      ],
+      "DEV_FURAG": [
+        { "id": "SR_FUR_DEV", "name": "Desarrollador", "person": "" }
       ]
     }
   }
