@@ -304,13 +304,11 @@
       const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
       if (hasStrategist){ mountBox(STRATEGIST_ID, STRATEGIST.label, 1); addEdge(data.id, STRATEGIST_ID); }
 
-      // Nivel 2: Equipos
+      // Nivel 2: Equipos + vínculos
       (data.roles || []).forEach(r=>{
         mountBox(r.id, r.name, 2);
-        // Vínculo jerárquico Jefa → equipo
-        addEdge(data.id, r.id);
-        // Vínculo transversal Analista → equipo (punteado)
-        if (hasStrategist) addDashEdge(STRATEGIST_ID, r.id);
+        addEdge(data.id, r.id);               // Jefa → equipo
+        if (hasStrategist) addDashEdge(STRATEGIST_ID, r.id); // Analista → equipo (punteado)
       });
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
@@ -412,15 +410,14 @@
               try{ nodes.remove(r.id);}catch(_){}
             });
             if (nodes.get(STRATEGIST_ID)){
-              removePerson(STRATEGIST_ID);
-              // quitar vínculos del estratega que puedan quedar
+              removePerson(STRATEGIST_ID); removeSidePerson(STRATEGIST_ID);
               edges.get({filter:e=>e.from===STRATEGIST_ID}).forEach(e=>{ try{ edges.remove(e.id);}catch(_){} });
               try{ edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){}
               try{ nodes.remove(STRATEGIST_ID);}catch(_){}
             }
             expandedRoot.delete(data.id);
           }else{
-            // Expandir: dibuja analista y equipos (con doble vínculo)
+            // Expandir
             const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
             if (hasStrategist && !nodes.get(STRATEGIST_ID)){
               mountBox(STRATEGIST_ID, STRATEGIST.label, 1); addEdge(data.id, STRATEGIST_ID);
@@ -435,9 +432,11 @@
           stabilizeAndFit(120); return;
         }
 
-        // Clic en Analista estratégica → alternar persona
+        // Clic en Analista estratégica → mostrar/ocultar NOMBRE al costado (mismo nivel)
         if (id === STRATEGIST_ID){
-          togglePersonNode(STRATEGIST_ID, STRATEGIST?.person || "", 2, false);
+          const sid = `${STRATEGIST_ID}_S`;
+          if (sidePersons.has(sid)){ removeSidePerson(STRATEGIST_ID); }
+          else { placeSidePersonFor(STRATEGIST_ID, STRATEGIST?.person || "", SIDE_OFFSET); }
           stabilizeAndFit(120); return;
         }
 
@@ -449,12 +448,6 @@
 
       // Subdiagramas
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
-
-      if(id===STICKY_ID){
-        const sid = `${STICKY_ID}_S`;
-        if (sidePersons.has(sid)){ removeSidePerson(STICKY_ID); } else { placeSidePersonForJefa(STICKY_ID); }
-        stabilizeAndFit(120); return;
-      }
 
       if(id===TEAM_ROOT_ID){
         if(expandedRoot.has(TEAM_ROOT_ID)){
@@ -476,7 +469,8 @@
       if(role){
         if (role.id === LEADER_NODE_ID){
           const sid = `${role.id}_S`;
-          if (sidePersons.has(sid)){ removeSidePerson(role.id); } else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
+          if (sidePersons.has(sid)){ removeSidePerson(role.id); }
+          else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
           const arr = data.subroles?.[role.id]; if(arr && arr.length) toggleSubroles(role.id, arr, data);
         }else{
           togglePersonNode(role.id, role.person, 3, !!role.planta);
@@ -497,4 +491,5 @@
   </script>
 </body>
 </html>
+
 
