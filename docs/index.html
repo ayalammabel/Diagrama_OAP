@@ -7,13 +7,19 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root{
-      --accent:#8b5cf6;
-      --accent-antes:#6b21a8;
+      /* Paleta y tokens visuales */
+      --accent:#7c3aed;          /* Indigo 600 */
+      --accent-antes:#6b21a8;    /* Purple 800 para ANTES */
       --ink:#0f172a;
-      --muted:#5b6474;
-      --border:#e8eaf1;
+      --muted:#6b7280;
+      --border:#e6e7ef;
       --bg:#ffffff;
       --appbar-bg: linear-gradient(180deg,#f6f4ff 0%, #f1effe 100%);
+
+      --node-bg:#ffffff;
+      --node-border:#d3d6e4;
+      --leader-bg:#f4f1ff;       /* fondo tenue para líder */
+      --leader-border:#7c3aed;
     }
     *{box-sizing:border-box}
     body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
@@ -33,16 +39,24 @@
       padding:9px 14px; border-radius:999px; font-weight:600; font-size:.95rem;
       background:#fff; color:#111; border:1px solid #dadcee; box-shadow:0 1px 0 rgba(0,0,0,.02); transition:.18s ease;}
     .btn:hover{transform:translateY(-1px)}
-    .btn.active{background:var(--btn-accent); color:#fff; border-color:var(--btn-accent); box-shadow:0 6px 16px rgba(139,92,246,.25);}
+    .btn.active{background:var(--btn-accent); color:#fff; border-color:var(--btn-accent); box-shadow:0 6px 16px rgba(124,58,237,.25);}
 
     .hintwrap{background:var(--appbar-bg); border-bottom:1px solid var(--border)}
     .hint{max-width:1200px; margin:0 auto; padding:8px 20px 16px; color:var(--muted); font-size:.95rem}
 
-    #network{height:82vh}
+    /* Canvas con un grid sutil */
+    #network{
+      height:82vh;
+      background:
+        linear-gradient(transparent 31px,#f4f5fb 32px) repeat-y,
+        linear-gradient(90deg,transparent 31px,#f4f5fb 32px) repeat-x;
+      background-size:32px 32px,32px 32px;
+    }
+
     #status{ display:none; }
 
     body.mode-antes  { --accent: var(--accent-antes); }
-    body.mode-despues{ --accent: #8b5cf6; }
+    body.mode-despues{ --accent: #7c3aed; }
   </style>
 </head>
 <body class="mode-despues">
@@ -86,8 +100,7 @@
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
 
-    /* ================== CONTEOS MANUALES (OAP General) ==================
-       Clave por route (4p, ti, gestion_conocimiento, mipg, administrativo). */
+    /* ================== CONTEOS MANUALES (OAP General) ================== */
     const OAP_MANUAL_COUNTS = {
       "ANTES": {
         "4p": 6,
@@ -105,7 +118,6 @@
       }
     };
 
-    /* (Opcional) Conteos manuales dentro de subdiagramas por equipo */
     const TEAM_FIXED_COUNTS = {
       // ti: { "ANTES": { "Equipo de Desarrolladores": 11 }, "DESPUÉS": { ... } }
     };
@@ -122,7 +134,7 @@
     const STICKY_ID = "GLOBAL_OAP_JEFA";
     let TEAM_ROOT_ID = null;
 
-    /* 🔸 CAMBIO: ids de líder por modo */
+    /* líderes por modo */
     let LEADER_NODE_ID_BEFORE = null;
     let LEADER_NODE_ID_AFTER  = null;
 
@@ -141,6 +153,27 @@
       baseOptions()
     );
 
+    /* Glow/realce en hover/selección */
+    network.setOptions({
+      nodes:{
+        chosen:{
+          node: (values)=>{
+            values.shadow = true;
+            values.shadowSize = 28;
+            values.shadowColor = "rgba(124,58,237,.20)";
+            values.borderWidth = 2;
+            values.color = values.color || {};
+            values.color.border = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+          }
+        }
+      },
+      edges:{
+        chosen:{
+          edge: (values)=>{ values.width = 2; values.color = getComputedStyle(document.body).getPropertyValue('--accent').trim(); }
+        }
+      }
+    });
+
     const expandedRoot  = new Set();
     const openedPersons = new Set();
     const openedSubroles = new Set();
@@ -158,16 +191,29 @@
           sortMethod:"directed"
         }},
         physics:false,
-        nodes:{ shape:"box", margin:10, borderWidth:1, color:{ background:"#fff", border:"#9aa3af" } },
-        edges:{ color:{ color: '#cbd5e1' }, smooth:{ enabled:true, type:"horizontal", forceDirection:"vertical" } },
-        interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true }
+        nodes:{
+          shape:"box",
+          margin:10,
+          borderWidth:1,
+          color:{ background:getComputedStyle(document.body).getPropertyValue('--node-bg').trim(),
+                  border:getComputedStyle(document.body).getPropertyValue('--node-border').trim() },
+          font:{ size:14, face:"system-ui, Segoe UI, Roboto, Arial, sans-serif", color:"#111827" },
+          shadow:{ enabled:true, color:"rgba(0,0,0,.08)", size:20, x:0, y:6 },
+          shapeProperties:{ borderRadius:12 }
+        },
+        edges:{
+          color:{ color:'#cfd5e3', highlight:'#a7b0c6' },
+          width:1.2,
+          smooth:{ enabled:true, type:"cubicBezier", forceDirection:"vertical", roundness:0.5 }
+        },
+        interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true, tooltipDelay:100 }
       };
     }
 
-    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#8b5cf6';
+    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#7c3aed';
     const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
 
-    /* === NUEVO: quita trailing "(n)" o "(n roles)" de cualquier etiqueta === */
+    /* Limpia "(n)" o "(n roles)" de etiquetas */
     function stripTrailingCount(s){
       return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim();
     }
@@ -237,13 +283,17 @@
     function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
 
-    /* Etiquetas laterales para nombres (jefa o estratega) */
+    /* Etiquetas laterales (chip) */
     function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
       const rootNode = nodes.get(rootId); if(!rootNode) return;
       if (!nodes.get(sid)){
-        mountBox(sid, label.trim(), rootNode.level, { font:{ italics:true } });
+        mountBox(sid, label.trim(), rootNode.level, {
+          font:{ italics:true, color:"#374151" },
+          color:{ background:"#f8fafc", border:"#d1d5db" },
+          shapeProperties:{ borderRadius:999 }
+        });
         addEdge(rootId, sid, { dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } });
         sidePersons.add(sid);
       }
@@ -260,7 +310,7 @@
     function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
     function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
 
-    /* Dotted bridges strategist → teams (solo en OAP) */
+    /* Dotted bridges estratega → equipos (solo OAP) */
     function clearDottedArcs(){
       dottedArcIds.forEach(id => { try{ edges.remove(id);}catch(_){} });
       dottedArcIds.clear();
@@ -274,8 +324,8 @@
         edges.add({
           id, from: STRATEGIST_ID, to: r.id,
           dashes: true, arrows: '',
-          color: {color:'#7a7a7a'},
-          width: 1.5,
+          color: {color:'#9aa3b2'},       /* un poco más visible */
+          width: 1.6,
           smooth: { enabled:true, type:'horizontal', forceDirection:'vertical', roundness:0.35 }
         });
         dottedArcIds.add(id);
@@ -343,7 +393,7 @@
 
       const roleLevel = getLevel(roleId) ?? 3;
 
-      /* 👇 usamos el líder del modo actual para dar un salto de nivel si aplica */
+      /* líder del modo actual */
       const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
       const isLeaderParent = (CURRENT_LEADER_ID && roleId === CURRENT_LEADER_ID);
 
@@ -405,7 +455,7 @@
       const modeKey = (MODE === "ANTES") ? "ANTES" : "DESPUÉS";
 
       for (const r of (roles || [])){
-        const baseLabel = stripTrailingCount(r.name);          // ← limpia "(n)" o "(n roles)"
+        const baseLabel = stripTrailingCount(r.name);
         const routeKey  = (r.route || "").trim();
         const manual    = routeKey ? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
 
@@ -452,7 +502,7 @@
       if(!data || !data.subroles) return;
       for(const parentId in data.subroles){
         const node = nodes.get(parentId); if(!node) continue;
-        const base = stripTrailingCount(node.label || "");     // ← limpia también aquí
+        const base = stripTrailingCount(node.label || "");
         const nOverride = overrides && overrides[base];
         const n = (nOverride != null) ? nOverride : data.subroles[parentId].length;
         nodes.update({ id: parentId, label: `${base} (${n} roles)` });
@@ -481,9 +531,19 @@
       // Hijos del equipo (nivel 1)
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(TEAM_ROOT_ID, r.id); });
 
-      // 🔸 Reorganizar bajo el líder correcto según el modo
+      // Reorganizar bajo el líder correcto según el modo
       const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
+
+      /* Estilo especial para el líder */
+      if (CURRENT_LEADER_ID && nodes.get(CURRENT_LEADER_ID)) {
+        nodes.update({
+          id: CURRENT_LEADER_ID,
+          color:{ background:getComputedStyle(document.body).getPropertyValue('--leader-bg').trim(),
+                  border: getComputedStyle(document.body).getPropertyValue('--leader-border').trim() },
+          font:{ bold:true }
+        });
+      }
 
       const teamOverrides =
         (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "ANTES" : "DESPUÉS"]) || null;
@@ -517,7 +577,7 @@
           return out;
         }
 
-        /* 🔸 leer líderes por modo (con fallback a leaderId único) */
+        /* leer líderes por modo (con fallback a leaderId único) */
         LEADER_NODE_ID_BEFORE = data.meta?.leaderIdBefore ? `${prefix}_${data.meta.leaderIdBefore}` : null;
         LEADER_NODE_ID_AFTER  = data.meta?.leaderIdAfter  ? `${prefix}_${data.meta.leaderIdAfter}`  : null;
         if (data.meta?.leaderId) {
@@ -630,7 +690,6 @@
             addEdge(TEAM_ROOT_ID, r.id);
           });
 
-          /* 🔸 usar líder correcto para esta vista */
           const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
           rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
 
@@ -642,7 +701,6 @@
 
       const role = (data.roles||[]).find(r=>r.id===id);
       if(role){
-        /* 🔸 comparación contra el líder del modo actual */
         const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
 
         if (role.id === CURRENT_LEADER_ID){
