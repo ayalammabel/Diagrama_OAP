@@ -23,12 +23,11 @@
     header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
     .appbar{
       max-width:1200px; margin:0 auto; padding:18px 20px;
-      display:flex; align-items:center; gap:24px; /* menos separación para acercar controles a la izquierda */
+      display:flex; align-items:center; gap:24px;
     }
     .appbar__brand{min-width:0}
     .appbar h1{margin:0; font-size:1.28rem; line-height:1.25; font-weight:800; letter-spacing:.2px}
     .appbar .subtitle{margin:6px 0 0; color:var(--muted); font-size:.95rem}
-    /* Contenedor de controles alineado tras el título, no pegado a la derecha */
     .appbar__controls{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
 
     label{font-size:.92rem; color:var(--muted)}
@@ -77,7 +76,6 @@
         <p class="subtitle">Presentación institucional</p>
       </div>
 
-      <!-- Controles a la izquierda del header, botones juntos -->
       <div class="appbar__controls">
         <label>Equipo:
           <select id="teamSelect"></select>
@@ -121,6 +119,34 @@
     const sel = document.getElementById("teamSelect");
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
+
+    // ----- CONTEOS FIJOS QUE PEDISTE -----
+    // En OAP (nodos de primer nivel)
+    const OAP_FIXED_COUNTS = {
+      AFTER: { // DESPUÉS
+        "4P": 8,
+        "Administrativo": 6,
+        "Administrativos": 6,
+        "Gestión del Conocimiento": 2,
+        "MIPG": 6,
+        "TI": 19,
+      },
+      BEFORE: { // ANTES
+        "4P": 6,
+        "Administrativo": 8,
+        "Administrativos": 8,
+        "MIPG": 8,
+        "TI": 20
+      }
+    };
+
+    // Dentro de subdiagramas por equipo (roles bajo el equipo)
+    const TEAM_FIXED_COUNTS = {
+      ti: {
+        BEFORE: { "Equipo de Desarrolladores": 11 },
+        // AFTER:  { "Equipo de Desarrolladores": 6 }, // si quieres fijar el después, descomenta
+      }
+    };
 
     // Niveles de layout
     const LEVEL_Y_GAP = 130;
@@ -362,16 +388,34 @@
     /* Sin contadores en botones */
     function updateCountsUI(){}
 
+    // --------- OAP: fija conteos si existen; si no, calcula desde JSON ---------
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
+
+      const MODE_KEY = (MODE === "ANTES") ? "BEFORE" : "AFTER";
+
       for(const r of roles){
+        // Nombre base sin numeritos previos
+        const base = String(r.name)
+          .replace(/\s*\(\d+\s*roles?\)\s*$/,'')
+          .replace(/\s*\(\d+\)\s*$/,'')
+          .trim();
+
+        // 1) ¿Hay un valor fijo?
+        const fixed = OAP_FIXED_COUNTS[MODE_KEY]?.[base];
+        if (fixed != null){
+          nodes.update({ id:r.id, label:`${base} (${fixed} roles)` });
+          continue;
+        }
+
+        // 2) Si no hay fijo: intenta calcular desde su JSON
         if(!r.route) continue;
         try{
           const res = await fetch(`${DATA_DIR}/${r.route}.json?cb=${Date.now()}`);
           const data = await res.json();
-          const n = (data.after?.roles?.length ?? 0);
-          const base = String(r.name).replace(/\s*\(\d+\)\s*$/,'').trim();
-          nodes.update({ id:r.id, label:`${base} (${n})` });
+          const block = (MODE === "ANTES") ? data.before : data.after;
+          const n = (block?.roles?.length ?? 0);
+          nodes.update({ id:r.id, label:`${base} (${n} roles)` });
         }catch(_){}
       }
     }
@@ -390,12 +434,18 @@
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
     }
 
-    function addCountsToNodes(data){
+    // ---- Roles dentro de un equipo (subdiagrama): admite overrides ----
+    function addCountsToNodes(data, overrides){
       if(!data || !data.subroles) return;
       for(const parentId in data.subroles){
         const node = nodes.get(parentId); if(!node) continue;
-        const n = data.subroles[parentId].length;
-        const base = String(node.label||"").replace(/\s*\(\d+\s+roles?\)\s*$/,'').trim();
+        const base = String(node.label||"")
+          .replace(/\s*\(\d+\s*roles?\)\s*$/,'')
+          .trim();
+
+        const nOverride = overrides && overrides[base];
+        const n = (nOverride != null) ? nOverride : data.subroles[parentId].length;
+
         nodes.update({ id: parentId, label: `${base} (${n} roles)` });
       }
     }
@@ -412,7 +462,10 @@
 
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
-      addCountsToNodes(data);
+
+      // Overrides por equipo/modo
+      const teamOverrides = (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "BEFORE" : "AFTER"]) || null;
+      addCountsToNodes(data, teamOverrides);
 
       updateCountsUI(); stabilizeAndFit(160);
     }
@@ -560,7 +613,7 @@
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
 
     /************ INICIO ************/
-    loadTeam(currentKey);
+    loadTeam("oap");
   </script>
 </body>
 </html>
