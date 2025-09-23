@@ -165,6 +165,11 @@
     const SIDE_OFFSET = 220;      // lateral genérico
     const JEFA_SIDE_OFFSET = 220; // lateral jefa
 
+    /* === NUEVO: Analista estratégica (en OAP base) === */
+    let STRATEGIST_NODE_ID = "OAP_ANALISTA_ESTRATEGICA";
+    let STRATEGIST_LABEL   = "Analista estratégica";
+    let STRATEGIST_PERSON  = ""; // opcional: nombre de la persona
+
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
     const network = new vis.Network(
@@ -428,8 +433,15 @@
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
 
+      // Raíz
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
+
+      // Equipos (nivel 1)
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
+
+      // === NUEVO: Analista estratégica (nivel 1 bajo la Jefa) ===
+      mountBox(STRATEGIST_NODE_ID, STRATEGIST_LABEL, 1);
+      addEdge(data.id, STRATEGIST_NODE_ID);
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
     }
@@ -503,6 +515,12 @@
           const {title, person} = splitTitlePerson(orgAfter.label);
           if(title) JEFA_LABEL = cleanPhase(title);
           if(person) JEFA_PERSON = person;
+
+          // === NUEVO: leer estratega desde meta (opcional) ===
+          if (data.meta?.strategist) {
+            STRATEGIST_LABEL  = data.meta.strategist.label  || STRATEGIST_LABEL;
+            STRATEGIST_PERSON = data.meta.strategist.person || STRATEGIST_PERSON;
+          }
         }
 
         document.getElementById("title").innerHTML =
@@ -538,11 +556,25 @@
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
+            // quitar también Analista estratégica
+            removePerson(STRATEGIST_NODE_ID);
+            try{ edges.remove(`${data.id}-${STRATEGIST_NODE_ID}`);}catch(_){}
+            try{ nodes.remove(STRATEGIST_NODE_ID);}catch(_){}
             expandedRoot.delete(data.id);
           }else{
             (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
+            // volver a asegurar Analista estratégica
+            if (!nodes.get(STRATEGIST_NODE_ID)) mountBox(STRATEGIST_NODE_ID, STRATEGIST_LABEL, 1);
+            addEdge(data.id, STRATEGIST_NODE_ID);
             expandedRoot.add(data.id);
           }
+          stabilizeAndFit(120);
+          return;
+        }
+
+        // Clic en Analista estratégica: muestra persona si hay
+        if (id === STRATEGIST_NODE_ID){
+          togglePersonNode(STRATEGIST_NODE_ID, STRATEGIST_PERSON, 2, false);
           stabilizeAndFit(120);
           return;
         }
@@ -617,5 +649,6 @@
   </script>
 </body>
 </html>
+
 
 
