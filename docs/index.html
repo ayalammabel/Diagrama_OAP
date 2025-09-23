@@ -21,9 +21,9 @@
     --leader-bg:#f4f1ff;
     --leader-border:#7c3aed;
 
-    /* Drawer */
-    --bar-before:#06b6d4;       /* cyan 500 (ANTES) */
-    --bar-after:var(--accent);  /* púrpura (DESPUÉS) */
+    /* Drawer / resumen */
+    --bar-before:#06b6d4;       /* turquesa (ANTES) */
+    --bar-after:#7c3aed;        /* púrpura (DESPUÉS) */
     --bar-track:#eef2ff;
   }
 
@@ -63,41 +63,55 @@
   body.mode-antes  { --accent: var(--accent-antes); }
   body.mode-despues{ --accent: #7c3aed; }
 
-  /* ===== Drawer (Resumen) ===== */
-  .drawer{position:fixed; inset:0; display:flex; justify-content:flex-end; z-index:50; pointer-events:none;}
-  .drawer .sheet{
+  /* ===== Drawer (Resumen) =====
+     NOTA: el aside solo ocupa el ancho de la “shelf” a la derecha; no bloquea el lienzo. */
+  .drawer{
+    position:fixed; right:0; top:0; height:100vh; width:auto; z-index:50;
+  }
+  .shelf{
     width:420px; max-width:92vw; height:100%;
     background:#fff; border-left:1px solid var(--border);
     box-shadow:-18px 0 36px rgba(16,24,40,.08);
-    transform:translateX(100%); transition:.24s ease; pointer-events:auto;
+    transform:translateX(100%); transition:transform .24s ease;
     display:flex; flex-direction:column;
   }
-  .drawer.open .sheet{ transform:translateX(0); }
+  .drawer.open .shelf{ transform:translateX(0); }
 
-  .sheet__head{display:flex; align-items:center; gap:10px; padding:12px; border-bottom:1px solid var(--border)}
-  .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; font-weight:700; cursor:pointer}
+  .sheet__head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border)}
+  .head-title{font-weight:800}
+  .pill{padding:8px 10px; border:1px solid var(--border); border-radius:999px; background:#fff; font-weight:700; cursor:pointer}
   .pill.active{background:var(--accent); border-color:var(--accent); color:#fff}
   .spacer{flex:1}
   .xbtn{width:34px; height:34px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:700}
 
   .sheet__body{padding:12px; overflow:auto}
-  .legend{display:flex; align-items:center; gap:10px; font-size:.9rem; color:#475569; margin-bottom:8px}
+
+  /* Leyenda / switch */
+  .legend{display:flex; align-items:center; gap:12px; font-size:.9rem; color:#475569; margin:6px 0 12px}
   .dot{width:10px; height:10px; border-radius:999px}
   .dot.before{background:var(--bar-before)}
   .dot.after{background:var(--bar-after)}
 
-  .row{margin:10px 0}
-  .row .label{font-weight:700; margin-bottom:6px}
-  .track{position:relative; height:28px; background:var(--bar-track); border-radius:8px; overflow:hidden}
-  .fill{position:absolute; inset:0 auto 0 0; height:100%; display:flex; align-items:center; padding-left:8px; color:#fff; font-weight:700; font-size:.9rem}
+  /* Barras */
+  .group{margin:12px 0 4px; font-weight:800; color:#0f172a}
+  .row{display:flex; align-items:center; gap:10px; margin:10px 0}
+  .row .label{flex:1 1 56%; min-width:0; font-weight:600; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .row .track{flex:1 1 44%; position:relative; height:26px; background:var(--bar-track); border-radius:8px; overflow:hidden}
+  .fill{position:absolute; inset:0 auto 0 0; height:100%; display:flex; align-items:center; padding-left:8px; color:#fff; font-weight:800; font-size:.85rem}
   .fill.before{background:var(--bar-before)}
   .fill.after{background:var(--bar-after)}
-  .track.compare{height:44px; padding:6px 8px; background:transparent}
-  .track.compare .fill{position:relative; border-radius:6px; margin:4px 0}
-  .sub{margin-left:10px; border-left:2px solid #eef2ff; padding-left:10px}
+  .compare{height:44px; background:transparent}
+  .compare .fill{position:relative; border-radius:6px; margin:4px 0}
 
-  /* Botón flotante abrir resumen (opcional si no quieres en appbar) */
-  .btn-small{padding:8px 12px; border-radius:12px; font-weight:700; border:1px solid var(--border); background:#fff; cursor:pointer}
+  .sub{margin-left:8px; border-left:2px solid #eef2ff; padding-left:8px}
+
+  /* Tabla detalle */
+  .table-title{margin:14px 0 6px; font-weight:800}
+  table.summary{width:100%; border-collapse:collapse; font-size:.9rem; border:1px solid var(--border)}
+  .summary th,.summary td{border-bottom:1px solid var(--border); padding:8px 10px; text-align:right}
+  .summary th:first-child,.summary td:first-child{text-align:left}
+  .summary thead th{background:#fafaff; position:sticky; top:0}
+  .summary .section{background:#f5f3ff; font-weight:800}
 </style>
 </head>
 <body class="mode-despues">
@@ -129,22 +143,21 @@
 
   <div id="network"></div>
 
-  <!-- ===== Drawer lateral (no bloquea el lienzo fuera de la hoja) ===== -->
+  <!-- ===== Drawer lateral: solo ocupa su ancho y no bloquea el lienzo ===== -->
   <aside id="drawer" class="drawer" aria-hidden="true">
-    <div class="sheet" role="dialog" aria-label="Resumen de personas">
+    <div class="shelf" role="dialog" aria-label="Resumen de personas">
       <div class="sheet__head">
-        <strong style="margin-right:6px">Resumen de personas</strong>
+        <span class="head-title">Roles por equipo</span>
         <span id="scopeTag" class="pill" style="cursor:default; font-weight:600">OAP General</span>
-
         <span class="spacer"></span>
 
         <button id="pillAntes"    class="pill">Antes</button>
         <button id="pillDespues"  class="pill active">Después</button>
         <button id="pillComparar" class="pill">Comparar</button>
 
-        <label style="display:flex; align-items:center; gap:6px; margin-left:10px">
+        <label style="display:flex; align-items:center; gap:6px; margin-left:8px; user-select:none;">
           <input id="chkSubs" type="checkbox" checked />
-          <span style="font-weight:600">Incluir subdivisiones</span>
+          <span style="font-weight:700">Subdividir</span>
         </label>
 
         <button id="closeDrawer" class="xbtn" aria-label="Cerrar">×</button>
@@ -155,7 +168,13 @@
           <span class="dot before"></span> Antes
           <span class="dot after" style="margin-left:10px"></span> Después
         </div>
+
         <div id="chart"></div>
+
+        <div class="table-title">Detalle</div>
+        <div style="max-height:40vh; overflow:auto; border:1px solid var(--border); border-radius:10px">
+          <table class="summary" id="summaryTable"></table>
+        </div>
       </div>
     </div>
   </aside>
@@ -183,7 +202,7 @@ const OAP_MANUAL_COUNTS = {
 };
 const TEAM_FIXED_COUNTS = {};
 
-/* ================== network (sin cambios funcionales) ================== */
+/* ================== network ================== */
 const LEVEL_Y_GAP = 130;
 const MIN_GAP = 300;
 
@@ -284,7 +303,6 @@ function placeSidePersonFor(rootId,label,offset=SIDE_OFFSET){
   nodes.update({ id:sid,x:r.x+offset,y:r.y,level:rootNode.level,fixed:{x:true,y:true} });
 }
 function keepSideAligned(rootId,offset=SIDE_OFFSET){ const sid=`${rootId}_S`; if(!nodes.get(sid)||!nodes.get(rootId)) return; const r=network.getPositions([rootId])[rootId]; const level=getLevel(rootId)??0; nodes.update({id:sid,x:r.x+offset,y:r.y,level}); }
-function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId,JEFA_PERSON,JEFA_SIDE_OFFSET); }
 function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId,JEFA_SIDE_OFFSET); }
 
 function clearDottedArcs(){ dottedArcIds.forEach(id=>{ try{edges.remove(id);}catch(_){}}); dottedArcIds.clear(); }
@@ -307,7 +325,6 @@ function stabilizeAndFit(anim=200){
       if(nodes.get(orgAfter?.id||orgBefore?.id)){ nodes.update({id:(MODE==="ANTES"?orgBefore.id:orgAfter.id),x:0}); }
       if(nodes.get(STRATEGIST_ID)){ nodes.update({id:STRATEGIST_ID,x:0}); }
       keepJefaPersonSideAlignedFor((MODE==="ANTES")?orgBefore.id:orgAfter.id);
-      if(nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID,SIDE_OFFSET);
     }
     setTimeout(()=>{ fixAllPositions(true); network.fit({animation:{duration:anim,easingFunction:"easeInOutQuad"}}); setStatus("Listo"); },0);
   },0);
@@ -439,7 +456,6 @@ async function loadTeam(key){
     if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
     setStatus("Listo");
 
-    // refrescar resumen si está abierto
     if(drawerOpen) { await ensureResumen(); renderResumen(); }
   }catch(err){ console.error(err); setStatus("Error al cargar"); alert(`No pude cargar ${DATA_DIR}/${key}.json`); }
 }
@@ -453,8 +469,6 @@ network.on("click",(p)=>{
     const data=(MODE==="ANTES")?orgBefore:orgAfter;
 
     if(id===data.id){
-      const sid=`${data.id}_S`;
-      if(sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
       if(expandedRoot.has(data.id)){
         (data.roles||[]).forEach(r=>{ closeSubtree(r.id,data); removePerson(r.id); removeSidePerson(r.id); try{edges.remove(`${data.id}-${r.id}`);}catch(_){ } try{nodes.remove(r.id);}catch(_){ } });
         if(nodes.get(STRATEGIST_ID)){ removePerson(STRATEGIST_ID); try{edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){ } try{nodes.remove(STRATEGIST_ID);}catch(_){ } }
@@ -496,9 +510,6 @@ network.on("click",(p)=>{
   if(role){
     const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
     if(role.id===CURRENT_LEADER_ID){
-      const sid=`${role.id}_S`;
-      if(sidePersons.has(sid)){ removeSidePerson(role.id); }
-      else { placeSidePersonFor(role.id,(role.person||"Nuevo perfil"),SIDE_OFFSET); }
       const arr=data.subroles?.[role.id]; if(arr && arr.length) toggleSubroles(role.id,arr,data);
     }else{
       togglePersonNode(role.id,role.person,3,!!role.planta);
@@ -532,11 +543,13 @@ function renderResumen(){
 
   const chart=document.getElementById('chart');
   const legend=document.getElementById('legend');
+  const tableEl=document.getElementById('summaryTable');
+
   legend.style.display = (resumenMode==='COMPARAR') ? 'flex' : 'none';
 
   const keys = (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey];
 
-  // preparar filas
+  // preparar filas (para barras y tabla)
   let rows=[];
   keys.forEach(k=>{
     const e=resumenData.equipos[k]; if(!e) return;
@@ -546,33 +559,62 @@ function renderResumen(){
     }
   });
 
-  // escala
+  // ===== Barras
   const maxVal = Math.max(...rows.map(r => Math.max(r.a, r.d, 1)));
-
-  // html
   let out='';
+  let currentSection = '';
   rows.forEach(r=>{
+    // título de sección (solo para grupos principales)
+    if(r.isGroup){
+      currentSection = r.label;
+      out += `<div class="group">${r.label}</div>`;
+    }
     const cls = r.isGroup ? 'row' : 'row sub';
     const aw = Math.round((r.a/maxVal)*100);
     const dw = Math.round((r.d/maxVal)*100);
 
     out += `<div class="${cls}">
-      <div class="label">${r.label}</div>
-      ${resumenMode==='COMPARAR'
-        ? `<div class="track compare">
-             <div class="fill before" style="width:${aw}%"><span>A ${r.a}</span></div>
-             <div class="fill after"  style="width:${dw}%"><span>D ${r.d}</span></div>
-           </div>`
-        : `<div class="track">
-             <div class="fill ${resumenMode==='ANTES'?'before':'after'}" style="width:${resumenMode==='ANTES'?aw:dw}%">
-               <span>${resumenMode==='ANTES'?'A':'D'} ${resumenMode==='ANTES'?r.a:r.d}</span>
-             </div>
-           </div>`
+      <div class="label" title="${r.label}">${r.isGroup ? '' : '• '}${r.label}</div>
+      ${
+        resumenMode==='COMPARAR'
+          ? `<div class="track compare">
+               <div class="fill before" style="width:${aw}%"><span>A ${r.a}</span></div>
+               <div class="fill after"  style="width:${dw}%"><span>D ${r.d}</span></div>
+             </div>`
+          : `<div class="track">
+               <div class="fill ${resumenMode==='ANTES'?'before':'after'}" style="width:${resumenMode==='ANTES'?aw:dw}%">
+                 <span>${resumenMode==='ANTES'?'A':'D'} ${resumenMode==='ANTES'?r.a:r.d}</span>
+               </div>
+             </div>`
       }
     </div>`;
   });
-
   chart.innerHTML = out;
+
+  // ===== Tabla
+  let thead = (resumenMode==='COMPARAR')
+      ? `<thead><tr><th>Equipos / subdivisiones</th><th>Antes</th><th>Después</th></tr></thead>`
+      : `<thead><tr><th>Equipos / subdivisiones</th><th>${resumenMode==='ANTES'?'Antes':'Después'}</th></tr></thead>`;
+
+  let tbody = '';
+  keys.forEach(k=>{
+    const e=resumenData.equipos[k]; if(!e) return;
+    tbody += `<tr class="section"><td>${e.label||k}</td>${
+      (resumenMode==='COMPARAR') ? `<td style="text-align:right">${e.antes?.total||0}</td><td style="text-align:right">${e.despues?.total||0}</td>`
+                                 : `<td style="text-align:right">${resumenMode==='ANTES'?(e.antes?.total||0):(e.despues?.total||0)}</td>`
+    }</tr>`;
+
+    if(includeSubs && Array.isArray(e.subdivisiones)){
+      e.subdivisiones.forEach(s=>{
+        tbody += `<tr><td>&nbsp;&nbsp;• ${s.label}</td>${
+          (resumenMode==='COMPARAR') ? `<td>${s.antes||0}</td><td>${s.despues||0}</td>`
+                                     : `<td>${resumenMode==='ANTES'?(s.antes||0):(s.despues||0)}</td>`
+        }</tr>`;
+      });
+    }
+  });
+
+  tableEl.innerHTML = thead + `<tbody>${tbody}</tbody>`;
 }
 
 /* abrir/cerrar */
@@ -594,7 +636,7 @@ document.getElementById('chkSubs').addEventListener('change', (e)=>{ includeSubs
 function togglePills(){
   document.getElementById('pillAntes').classList.toggle('active', resumenMode==='ANTES');
   document.getElementById('pillDespues').classList.toggle('active', resumenMode==='DESPUÉS');
-  document.getElementById('pillComparar').classList.toggle('active', resumenMode==='COMPARAR');
+  document.getElementById('pillComparar').classList.toggle('active', resumenMode='COMPARAR');
 }
 
 /* ======== cambios de equipo / modo ======== */
@@ -607,5 +649,4 @@ loadTeam("oap");
 </script>
 </body>
 </html>
-
 
