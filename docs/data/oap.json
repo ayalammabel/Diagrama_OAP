@@ -27,7 +27,7 @@
       { "id": "A_ADM",  "name": "Administrativo (6)",           "person": "", "route": "administrativo" },
       { "id": "A_TI",   "name": "Tecnologías de la Información (20)",                           "person": "", "route": "ti" },
       { "id": "A_MIPG", "name": "MIPG (6)",                     "person": "", "route": "mipg" }
-    ],no dentro 
+    ],
     "subroles": {}
   }
 }
