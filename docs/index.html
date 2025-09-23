@@ -86,12 +86,30 @@
     sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
     sel.value = "oap";
 
-    /* Conteos fijos pedidos */
-    const OAP_FIXED_COUNTS = {
-      AFTER: { "4P":8, "Administrativo":6, "Administrativos":6, "Gestión del Conocimiento":2, "MIPG":6, "TI":19 },
-      BEFORE:{ "4P":6, "Administrativo":8, "Administrativos":8, "MIPG":8, "TI":20 }
+    /* ================== CONTEOS MANUALES (OAP General) ==================
+       Clave por route (4p, ti, gestion_conocimiento, mipg, administrativo).
+       Edita aquí cuando necesites cambiar las cifras que se muestran en OAP. */
+    const OAP_MANUAL_COUNTS = {
+      "ANTES": {
+        "4p": 6,
+        "ti": 19,
+        "gestion_conocimiento": 3,
+        "mipg": 8,
+        "administrativo": 8
+      },
+      "DESPUÉS": {
+        "4p": 8,
+        "ti": 20,
+        "gestion_conocimiento": 3,
+        "mipg": 6,
+        "administrativo": 6
+      }
     };
-    const TEAM_FIXED_COUNTS = { ti: { BEFORE: { "Equipo de Desarrolladores": 11 } } };
+
+    /* (Opcional) Conteos manuales dentro de subdiagramas por equipo */
+    const TEAM_FIXED_COUNTS = {
+      // ti: { "ANTES": { "Equipo de Desarrolladores": 11 }, "DESPUÉS": { ... } }
+    };
 
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
@@ -373,21 +391,21 @@
 
     function updateCountsUI(){}
 
+    /* ======= NUEVO: usa conteos manuales por route en OAP ======= */
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
-      const MODE_KEY = (MODE === "ANTES") ? "BEFORE" : "AFTER";
-      for(const r of roles){
-        const base = String(r.name).replace(/\s*\(\d+\s*roles?\)\s*$/,'').replace(/\s*\(\d+\)\s*$/,'').trim();
-        const fixed = OAP_FIXED_COUNTS[MODE_KEY]?.[base];
-        if (fixed != null){ nodes.update({ id:r.id, label:`${base} (${fixed} roles)` }); continue; }
-        if(!r.route) continue;
-        try{
-          const res = await fetch(`${DATA_DIR}/${r.route}.json?cb=${Date.now()}`);
-          const data = await res.json();
-          const block = (MODE === "ANTES") ? data.before : data.after;
-          const n = (block?.roles?.length ?? 0);
-          nodes.update({ id:r.id, label:`${base} (${n} roles)` });
-        }catch(_){}
+      const modeKey = (MODE === "ANTES") ? "ANTES" : "DESPUÉS";
+
+      for (const r of (roles || [])){
+        const baseLabel = String(r.name).replace(/\s*\(\d+\s*roles?\)\s*$/,'').trim();
+        const routeKey = (r.route || "").trim();
+        const manual = routeKey ? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
+
+        if (typeof manual === "number"){
+          nodes.update({ id: r.id, label: `${baseLabel} (${manual} roles)` });
+        } else {
+          nodes.update({ id: r.id, label: baseLabel });
+        }
       }
       buildDottedArcsToTeams(roles);
     }
@@ -459,7 +477,7 @@
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
 
       const teamOverrides =
-        (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "BEFORE" : "AFTER"]) || null;
+        (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "ANTES" : "DESPUÉS"]) || null;
       addCountsToNodes(data, teamOverrides);
 
       updateCountsUI();
@@ -635,6 +653,7 @@
   </script>
 </body>
 </html>
+
 
 
 
