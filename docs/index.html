@@ -7,57 +7,65 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root{
-      --accent:#16a34a;
+      /* Paleta morada */
+      --accent:#8b5cf6;          /* púrpura principal (Después) */
+      --accent-antes:#6b21a8;    /* púrpura profundo (Antes) */
       --ink:#0f172a;
       --muted:#5b6474;
-      --border:#e6e8ee;
+      --border:#e8eaf1;
       --bg:#ffffff;
-      --appbar-bg: linear-gradient(180deg,#f7f9fc, #eef2f7);
+      --appbar-bg: linear-gradient(180deg,#f6f4ff 0%, #f1effe 100%);
+      --chip-bg:#f4f3ff;
+      --chip-bd:#dcd7fe;
     }
     *{box-sizing:border-box}
     body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
 
-    /* App bar elegante */
-    header{
-      position:sticky; top:0; z-index:10;
-      background:var(--appbar-bg);
-      border-bottom:1px solid var(--border);
-    }
+    /* App bar */
+    header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
     .appbar{
-      max-width:1200px; margin:0 auto; padding:16px 20px;
+      max-width:1200px; margin:0 auto; padding:18px 20px;
       display:flex; align-items:center; justify-content:space-between; gap:16px;
     }
     .appbar__brand{min-width:0}
-    .appbar h1{
-      margin:0; font-size:1.25rem; line-height:1.25; font-weight:800; letter-spacing:.2px;
-    }
-    .appbar .subtitle{
-      margin:4px 0 0; color:var(--muted); font-size:.95rem;
-    }
-    .appbar__controls{
-      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    }
-    label{font-size:.9rem; color:var(--muted)}
-    select,button{
-      padding:8px 10px; border:1px solid #d6d9de; background:#fff; border-radius:10px; cursor:pointer;
-      font-size:.95rem;
-    }
-    button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-    #network{height:80vh}
+    .appbar h1{margin:0; font-size:1.28rem; line-height:1.25; font-weight:800; letter-spacing:.2px}
+    .appbar .subtitle{margin:6px 0 0; color:var(--muted); font-size:.95rem}
+    .appbar__controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
 
-    /* Hint breve debajo del appbar */
-    .hintwrap{
-      background:var(--appbar-bg); border-bottom:1px solid var(--border);
-    }
-    .hint{
-      max-width:1200px; margin:0 auto; padding:10px 20px 16px; color:var(--muted); font-size:.95rem;
+    label{font-size:.92rem; color:var(--muted)}
+    select{
+      padding:9px 12px; border:1px solid #dadcee; background:#fff; border-radius:12px; cursor:pointer; font-size:.95rem;
+      box-shadow:0 1px 0 rgba(0,0,0,.02);
     }
 
-    /* Ocultamos el status para no “ver” el Listo, pero el script puede usarlo */
+    /* Botones */
+    .btn{
+      --btn-accent: var(--accent);
+      appearance:none; border:none; outline:none; cursor:pointer;
+      padding:9px 14px; border-radius:999px; font-weight:600; font-size:.95rem;
+      background:#fff; color:var(--ink); border:1px solid #dadcee;
+      box-shadow:0 1px 0 rgba(0,0,0,.02);
+      transition:.18s ease;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.active{
+      background:var(--btn-accent); color:#fff; border-color:var(--btn-accent);
+      box-shadow:0 6px 16px rgba(139,92,246,.25);
+    }
+
+    /* Hint */
+    .hintwrap{background:var(--appbar-bg); border-bottom:1px solid var(--border)}
+    .hint{max-width:1200px; margin:0 auto; padding:8px 20px 16px; color:var(--muted); font-size:.95rem}
+
+    /* Canvas */
+    #network{height:82vh}
+
+    /* Ocultar “Listo” visual */
     #status{ display:none; }
 
-    body.mode-antes{ --accent:#2b6cb0; }
-    body.mode-despues{ --accent:#16a34a; }
+    /* Modos para cambiar acento */
+    body.mode-antes  { --accent: var(--accent-antes); }
+    body.mode-despues{ --accent: #8b5cf6; }
   </style>
 </head>
 <body class="mode-despues">
@@ -73,14 +81,14 @@
         <label>Equipo:
           <select id="teamSelect"></select>
         </label>
-        <button id="btnAntes">Ver ANTES</button>
-        <button id="btnDespues" class="active">Ver DESPUÉS</button>
+        <button id="btnAntes" class="btn">Antes</button>
+        <button id="btnDespues" class="btn active">Después</button>
         <span id="status">Listo</span>
       </div>
     </div>
     <div class="hintwrap">
       <div class="hint">
-        Usa la <b>raíz</b> para desplegar niveles y un <b>rol</b> para visualizar personas y subroles. En <b>OAP</b>, al hacer clic en un equipo se abre su subdiagrama.
+        Usa la <b>raíz</b> para desplegar niveles y un <b>rol</b> para ver personas y subroles. En <b>OAP</b>, al hacer clic en un equipo se abre su subdiagrama.
       </div>
     </div>
   </header>
@@ -155,7 +163,7 @@
     }
 
     /************ HELPERS ************/
-    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#16a34a';
+    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#8b5cf6';
     const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
     function splitTitlePerson(lbl){
       if(!lbl) return {title:"", person:""};
@@ -334,10 +342,21 @@
       });
     }
 
-    function updateCountsUI(){
-      document.getElementById("btnAntes").textContent  = `Ver ANTES (${orgBefore?.roles?.length ?? 0})`;
-      document.getElementById("btnDespues").textContent = `Ver DESPUÉS (${orgAfter?.roles?.length ?? 0})`;
+    /* Actualiza estilos de botones/tema */
+    function refreshButtons(){
+      const a = document.getElementById("btnAntes");
+      const d = document.getElementById("btnDespues");
+      a.classList.toggle("active", MODE==="ANTES");
+      d.classList.toggle("active", MODE==="DESPUÉS");
+      document.body.classList.toggle("mode-antes",   MODE==="ANTES");
+      document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
+      /* fuerza color activo según modo */
+      a.style.setProperty("--btn-accent","var(--accent)");
+      d.style.setProperty("--btn-accent","var(--accent)");
     }
+
+    /* Ya no ponemos contadores en los botones */
+    function updateCountsUI(){ /* intencionalmente vacío (sin contadores) */ }
 
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
@@ -356,7 +375,7 @@
     function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
     function mountOAP(view="DESPUÉS"){
-      MODE = view; clearAll(); baseNetworkOptions();
+      MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
       const data = (view==="ANTES") ? orgBefore : orgAfter;
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
@@ -378,7 +397,7 @@
     }
 
     function mountTeam(view="DESPUÉS"){
-      MODE = view; clearAll(); baseNetworkOptions();
+      MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
 
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
@@ -542,4 +561,5 @@
   </script>
 </body>
 </html>
+
 
