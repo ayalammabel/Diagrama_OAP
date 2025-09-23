@@ -120,6 +120,28 @@
       return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null;
     }
 
+    /****************** COLAPSO RECURSIVO ******************/
+    function removePerson(parentId){
+      const pid = `${parentId}_P`;
+      if (openedPersons.has(pid)){
+        try{ nodes.remove(pid); }catch(_){}
+        try{ edges.remove(`${parentId}-${pid}`); }catch(_){}
+        openedPersons.delete(pid);
+      }
+    }
+    function closeSubtree(nodeId, data){
+      const children = getSubrolesArr(data, nodeId) || [];
+      // cerrar descendientes primero
+      children.forEach(ch => {
+        closeSubtree(ch.id, data);
+        removePerson(ch.id);
+        try{ edges.remove(`${nodeId}-${ch.id}`);}catch(_){}
+        try{ nodes.remove(ch.id);}catch(_){}
+        openedSubroles.delete(ch.id);
+      });
+      openedSubroles.delete(nodeId);
+    }
+
     /****************** ESPACIADO Y FIJACIÓN ******************/
     function applyVerticalByLevel(y0=0){
       const all = nodes.get();
@@ -176,8 +198,7 @@
       openedPersons.add(pid);
     }
 
-    // <<<<<< AJUSTE CLAVE >>>>>>
-    // Solo crea persona placeholder ("Nuevo perfil") si el subrol NO es contenedor (no tiene sub-subroles)
+    // Solo crea persona placeholder si el subrol NO es contenedor
     function toggleSubroles(roleId, subrolesArr, dataCtx){
       if(!subrolesArr || !subrolesArr.length) return;
 
@@ -202,12 +223,8 @@
         mountBox(sr.id, sr.name, subLevel);
         addEdge(roleId, sr.id);
 
-        // ¿Este subrol tiene a su vez subroles?
         const hasGrandkids = !!getSubrolesArr(dataCtx, sr.id)?.length;
 
-        // Persona:
-        // - Si trae persona explícita -> la mostramos
-        // - Si NO trae persona pero tampoco tiene hijos -> placeholder "Nuevo perfil"
         if (sr.person && sr.person.trim()){
           mountBox(`${sr.id}_P`, sr.person.trim(), personLevel, { font:{ italics:true } });
           addEdge(sr.id, `${sr.id}_P`);
@@ -358,8 +375,12 @@
 
         if(id===data.id){
           if(expandedRoot.has(data.id)){
-            (data.roles||[]).forEach(r=>{ try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
-              try{ nodes.remove(r.id);}catch(_){} });
+            (data.roles||[]).forEach(r=>{
+              closeSubtree(r.id, data);
+              removePerson(r.id);
+              try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
+              try{ nodes.remove(r.id);}catch(_){}
+            });
             expandedRoot.delete(data.id); stabilizeAndFit(120); return;
           }else{
             (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
@@ -381,20 +402,8 @@
       if(id===TEAM_ROOT_ID){
         if(expandedRoot.has(TEAM_ROOT_ID)){
           (data.roles||[]).forEach(r=>{
-            const pid = `${r.id}_P`;
-            if(openedPersons.has(pid)){ try{nodes.remove(pid);}catch(_){ } try{edges.remove(`${r.id}-${pid}`);}catch(_){ } openedPersons.delete(pid); }
-            const subs = data.subroles?.[r.id] || [];
-            if(openedSubroles.has(r.id)){
-              subs.forEach(sr=>{
-                const rid = sr.id, sp = `${rid}_P`;
-                try{ nodes.remove(sp); }catch(_){}
-                try{ edges.remove(`${rid}-${sp}`);}catch(_){}
-                try{ nodes.remove(rid);}catch(_){}
-                try{ edges.remove(`${r.id}-${rid}`);}catch(_){}
-                openedPersons.delete(sp);
-              });
-              openedSubroles.delete(r.id);
-            }
+            closeSubtree(r.id, data);
+            removePerson(r.id);
             try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
             try{ nodes.remove(r.id);}catch(_){}
           });
@@ -412,15 +421,15 @@
       if(role){
         togglePersonNode(role.id, role.person, 3, !!role.planta);
         const arr = data.subroles?.[role.id];
-        if(arr && arr.length) toggleSubroles(role.id, arr, data); // <-- pasa data
+        if(arr && arr.length) toggleSubroles(role.id, arr, data);
         stabilizeAndFit(120);
         return;
       }
 
-      // NUEVO: abrir también nodos contenedores (SIMISIONAL, PANDORA, etc.)
+      // abrir también nodos contenedores (SIMISIONAL, PANDORA, etc.)
       const nested = getSubrolesArr(data, id);
       if (nested && nested.length){
-        toggleSubroles(id, nested, data); // <-- pasa data
+        toggleSubroles(id, nested, data);
         stabilizeAndFit(120);
         return;
       }
