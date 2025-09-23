@@ -1,127 +1,104 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Organigramas OAP – Antes / Después</title>
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  <style>
-    :root{
-      /* Paleta y tokens visuales */
-      --accent:#7c3aed;          /* Indigo 600 */
-      --accent-antes:#6b21a8;    /* Purple 800 para ANTES */
-      --ink:#0f172a;
-      --muted:#6b7280;
-      --border:#e6e7ef;
-      --bg:#ffffff;
-      --appbar-bg: linear-gradient(180deg,#f6f4ff 0%, #f1effe 100%);
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Organigramas OAP – Antes / Después</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root{
+    /* Paleta base */
+    --accent:#7c3aed;           /* púrpura (Después) */
+    --accent-antes:#6b21a8;
+    --ink:#0f172a;
+    --muted:#6b7280;
+    --border:#e6e7ef;
+    --bg:#ffffff;
+    --appbar-bg: linear-gradient(180deg,#f6f4ff 0%, #f1effe 100%);
 
-      --node-bg:#ffffff;
-      --node-border:#d3d6e4;
-      --leader-bg:#f4f1ff;
-      --leader-border:#7c3aed;
+    --node-bg:#ffffff;
+    --node-border:#d3d6e4;
+    --leader-bg:#f4f1ff;
+    --leader-border:#7c3aed;
 
-      /* Drawer */
-      --drawer-w: 480px;
-      --drawer-bg:#ffffff;
-      --drawer-border:#e8eaf1;
+    /* Drawer */
+    --bar-before:#06b6d4;       /* cyan 500 (ANTES) */
+    --bar-after:var(--accent);  /* púrpura (DESPUÉS) */
+    --bar-track:#eef2ff;
+  }
 
-      /* Barras */
-      --bar-antes:#6b21a8;
-      --bar-despues:#7c3aed;
-      --bar-bg:#f4f5fb;
-      --chip-bg:#f8fafc;
-      --chip-border:#d1d5db;
-    }
-    *{box-sizing:border-box}
-    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
 
-    header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
-    .appbar{max-width:1200px; margin:0 auto; padding:18px 20px; display:flex; align-items:center; gap:24px;}
-    .appbar__brand{min-width:0}
-    .appbar h1{margin:0; font-size:1.28rem; line-height:1.25; font-weight:800; letter-spacing:.2px}
-    .appbar .subtitle{margin:6px 0 0; color:var(--muted); font-size:.95rem}
-    .appbar__controls{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
+  .appbar{max-width:1200px; margin:0 auto; padding:18px 20px; display:flex; align-items:center; gap:24px;}
+  .appbar__brand{min-width:0}
+  .appbar h1{margin:0; font-size:1.28rem; line-height:1.25; font-weight:800; letter-spacing:.2px}
+  .appbar .subtitle{margin:6px 0 0; color:var(--muted); font-size:.95rem}
+  .appbar__controls{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
 
-    label{font-size:.92rem; color:var(--muted)}
-    select{padding:9px 12px; border:1px solid #dadcee; background:#fff; border-radius:12px; cursor:pointer; font-size:.95rem; box-shadow:0 1px 0 rgba(0,0,0,.02);}
+  label{font-size:.92rem; color:var(--muted)}
+  select{padding:9px 12px; border:1px solid #dadcee; background:#fff; border-radius:12px; cursor:pointer; font-size:.95rem; box-shadow:0 1px 0 rgba(0,0,0,.02);}
 
-    .btn-group{display:flex; gap:8px; white-space:nowrap}
-    .btn{--btn-accent: var(--accent); appearance:none; border:none; outline:none; cursor:pointer;
-      padding:9px 14px; border-radius:999px; font-weight:600; font-size:.95rem;
-      background:#fff; color:#111; border:1px solid #dadcee; box-shadow:0 1px 0 rgba(0,0,0,.02); transition:.18s ease;}
-    .btn:hover{transform:translateY(-1px)}
-    .btn.active{background:var(--btn-accent); color:#fff; border-color:var(--btn-accent); box-shadow:0 6px 16px rgba(124,58,237,.25);}
+  .btn{--btn-accent: var(--accent); appearance:none; border:none; outline:none; cursor:pointer;
+    padding:9px 14px; border-radius:999px; font-weight:700; font-size:.95rem;
+    background:#fff; color:#111; border:1px solid #dadcee; box-shadow:0 1px 0 rgba(0,0,0,.02); transition:.18s ease;}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.active{background:var(--btn-accent); color:#fff; border-color:var(--btn-accent); box-shadow:0 6px 16px rgba(124,58,237,.25);}
 
-    .hintwrap{background:var(--appbar-bg); border-bottom:1px solid var(--border)}
-    .hint{max-width:1200px; margin:0 auto; padding:8px 20px 16px; color:var(--muted); font-size:.95rem}
+  .hintwrap{background:var(--appbar-bg); border-bottom:1px solid var(--border)}
+  .hint{max-width:1200px; margin:0 auto; padding:8px 20px 16px; color:var(--muted); font-size:.95rem}
 
-    /* Canvas con un grid sutil */
-    #network{
-      height:82vh;
-      background:
-        linear-gradient(transparent 31px,#f4f5fb 32px) repeat-y,
-        linear-gradient(90deg,transparent 31px,#f4f5fb 32px) repeat-x;
-      background-size:32px 32px,32px 32px;
-    }
+  /* Lienzo con grid sutil */
+  #network{
+    height:82vh;
+    background:
+      linear-gradient(transparent 31px,#f4f5fb 32px) repeat-y,
+      linear-gradient(90deg,transparent 31px,#f4f5fb 32px) repeat-x;
+    background-size:32px 32px,32px 32px;
+  }
 
-    #status{ display:none; }
+  #status{ display:none; }
 
-    body.mode-antes  { --accent: var(--accent-antes); }
-    body.mode-despues{ --accent: #7c3aed; }
+  body.mode-antes  { --accent: var(--accent-antes); }
+  body.mode-despues{ --accent: #7c3aed; }
 
-    /* ===== Drawer de Análisis (desplegable) ===== */
-    .drawer-backdrop{
-      position: fixed; inset: 0; background: rgba(0,0,0,.18);
-      opacity: 0; pointer-events: none; transition: .2s ease;
-      z-index: 20;
-    }
-    .drawer{
-      position: fixed; top: 72px; right: 0;
-      width: var(--drawer-w);
-      max-width: min(92vw, var(--drawer-w));
-      height: calc(100vh - 72px);
-      background: var(--drawer-bg);
-      border-left: 1px solid var(--drawer-border);
-      box-shadow: -20px 0 40px rgba(0,0,0,.10);
-      transform: translateX(100%);
-      transition: transform .28s ease;
-      z-index: 21; display:flex; flex-direction:column;
-    }
-    .drawer.open{ transform: translateX(0); }
-    .drawer-backdrop.open{ opacity: 1; pointer-events: auto; }
+  /* ===== Drawer (Resumen) ===== */
+  .drawer{position:fixed; inset:0; display:flex; justify-content:flex-end; z-index:50; pointer-events:none;}
+  .drawer .sheet{
+    width:420px; max-width:92vw; height:100%;
+    background:#fff; border-left:1px solid var(--border);
+    box-shadow:-18px 0 36px rgba(16,24,40,.08);
+    transform:translateX(100%); transition:.24s ease; pointer-events:auto;
+    display:flex; flex-direction:column;
+  }
+  .drawer.open .sheet{ transform:translateX(0); }
 
-    .drawer__header{
-      padding: 14px 16px; border-bottom:1px solid var(--drawer-border);
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-    }
-    .drawer__title{margin:0; font-size:1.05rem}
-    .drawer__close{appearance:none; border:0; background:#fff; border:1px solid var(--drawer-border); border-radius:10px; padding:6px 10px; cursor:pointer; font-weight:700}
+  .sheet__head{display:flex; align-items:center; gap:10px; padding:12px; border-bottom:1px solid var(--border)}
+  .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; font-weight:700; cursor:pointer}
+  .pill.active{background:var(--accent); border-color:var(--accent); color:#fff}
+  .spacer{flex:1}
+  .xbtn{width:34px; height:34px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:700}
 
-    .drawer__toolbar{
-      padding:10px 12px; border-bottom:1px solid var(--drawer-border); display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    }
-    .chip{background:var(--chip-bg); border:1px solid var(--chip-border); padding:6px 10px; border-radius:999px; font-size:.85rem;}
-    .toggle-group{display:inline-flex; border:1px solid var(--drawer-border); border-radius:999px; overflow:hidden}
-    .toggle-group button{padding:8px 12px; border:0; background:#fff; cursor:pointer; font-weight:600}
-    .toggle-group button.active{background:var(--accent); color:#fff}
+  .sheet__body{padding:12px; overflow:auto}
+  .legend{display:flex; align-items:center; gap:10px; font-size:.9rem; color:#475569; margin-bottom:8px}
+  .dot{width:10px; height:10px; border-radius:999px}
+  .dot.before{background:var(--bar-before)}
+  .dot.after{background:var(--bar-after)}
 
-    .drawer__body{padding:12px 14px; overflow:auto}
-    .chart-row{display:grid; grid-template-columns: 1fr 2fr; gap:10px; align-items:center; margin:10px 0;}
-    .chart-label{font-size:.95rem}
-    .bar-bg{background:var(--bar-bg); border-radius:12px; height:26px; position:relative; overflow:hidden}
-    .bar{height:100%; border-radius:12px; transition: width .25s ease}
-    .bar.antes{background:var(--bar-antes)}
-    .bar.despues{background:var(--bar-despues)}
-    .bar.dual .antes, .bar.dual .despues{position:absolute; top:0; bottom:0;}
-    .legend{display:flex; gap:10px; align-items:center; font-size:.9rem; color:#6b7280; margin-top:6px}
-    .legend .dot{width:12px; height:12px; border-radius:3px; display:inline-block}
-    .chart-foot{color:#6b7280; font-size:.9rem; text-align:right; padding:6px 2px 0}
+  .row{margin:10px 0}
+  .row .label{font-weight:700; margin-bottom:6px}
+  .track{position:relative; height:28px; background:var(--bar-track); border-radius:8px; overflow:hidden}
+  .fill{position:absolute; inset:0 auto 0 0; height:100%; display:flex; align-items:center; padding-left:8px; color:#fff; font-weight:700; font-size:.9rem}
+  .fill.before{background:var(--bar-before)}
+  .fill.after{background:var(--bar-after)}
+  .track.compare{height:44px; padding:6px 8px; background:transparent}
+  .track.compare .fill{position:relative; border-radius:6px; margin:4px 0}
+  .sub{margin-left:10px; border-left:2px solid #eef2ff; padding-left:10px}
 
-    @media (max-width: 640px){
-      .drawer{ top: 64px; height: calc(100vh - 64px) }
-    }
-  </style>
+  /* Botón flotante abrir resumen (opcional si no quieres en appbar) */
+  .btn-small{padding:8px 12px; border-radius:12px; font-weight:700; border:1px solid var(--border); background:#fff; cursor:pointer}
+</style>
 </head>
 <body class="mode-despues">
   <header>
@@ -135,11 +112,13 @@
         <label>Equipo:
           <select id="teamSelect"></select>
         </label>
-        <div class="btn-group">
-          <button id="btnAntes" class="btn">Antes</button>
-          <button id="btnDespues" class="btn active">Después</button>
-        </div>
-        <button id="btnAnalisis" class="btn" title="Mostrar análisis">Análisis</button>
+
+        <button id="btnAntes" class="btn">Antes</button>
+        <button id="btnDespues" class="btn active">Después</button>
+
+        <!-- Botón para abrir el drawer -->
+        <button id="openSummary" class="btn">Resumen</button>
+
         <span id="status">Listo</span>
       </div>
     </div>
@@ -150,820 +129,483 @@
 
   <div id="network"></div>
 
-  <!-- ===== Drawer de Análisis (desplegable) ===== -->
-  <div id="drawerBackdrop" class="drawer-backdrop"></div>
-  <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Análisis y resumen">
-    <div class="drawer__header">
-      <h3 class="drawer__title">Resumen de personas</h3>
-      <button id="btnCloseDrawer" class="drawer__close" aria-label="Cerrar">✕</button>
-    </div>
-    <div class="drawer__toolbar">
-      <span class="chip" id="drawerScope">Ámbito: OAP General</span>
+  <!-- ===== Drawer lateral (no bloquea el lienzo fuera de la hoja) ===== -->
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-label="Resumen de personas">
+      <div class="sheet__head">
+        <strong style="margin-right:6px">Resumen de personas</strong>
+        <span id="scopeTag" class="pill" style="cursor:default; font-weight:600">OAP General</span>
 
-      <div class="toggle-group" role="tablist" aria-label="Modo de visualización">
-        <button id="chartViewTabs" class="active" aria-selected="true">Pestañas</button>
-        <button id="chartViewCompare" aria-selected="false">Comparativo</button>
+        <span class="spacer"></span>
+
+        <button id="pillAntes"    class="pill">Antes</button>
+        <button id="pillDespues"  class="pill active">Después</button>
+        <button id="pillComparar" class="pill">Comparar</button>
+
+        <label style="display:flex; align-items:center; gap:6px; margin-left:10px">
+          <input id="chkSubs" type="checkbox" checked />
+          <span style="font-weight:600">Incluir subdivisiones</span>
+        </label>
+
+        <button id="closeDrawer" class="xbtn" aria-label="Cerrar">×</button>
       </div>
 
-      <div class="toggle-group" id="tabsModo" role="tablist" aria-label="Periodo">
-        <button data-tab="ANTES">Antes</button>
-        <button data-tab="DESPUÉS" class="active">Después</button>
+      <div class="sheet__body">
+        <div class="legend" id="legend">
+          <span class="dot before"></span> Antes
+          <span class="dot after" style="margin-left:10px"></span> Después
+        </div>
+        <div id="chart"></div>
       </div>
-
-      <label class="chip" style="cursor:pointer">
-        <input type="checkbox" id="chkSubdiv" style="accent-color:var(--accent)"> Incluir subdivisiones
-      </label>
-    </div>
-    <div class="drawer__body">
-      <div class="legend">
-        <span class="dot" style="background:var(--bar-antes)"></span> Antes
-        <span class="dot" style="background:var(--bar-despues)"></span> Después
-      </div>
-      <div id="chartWrap"></div>
-      <div class="chart-foot" id="chartFoot"></div>
     </div>
   </aside>
 
-  <script>
-    document.getElementById("year").textContent = new Date().getFullYear();
+<script>
+/* ================== util base ================== */
+document.getElementById("year").textContent = new Date().getFullYear();
+const statusEl = document.getElementById("status");
+function setStatus(msg){ if(statusEl) statusEl.textContent = msg; }
+window.addEventListener("error", (e)=>{ console.error(e.error || e.message); setStatus("Error: " + (e.error?.message || e.message)); });
 
-    const statusEl = document.getElementById("status");
-    function setStatus(msg){ if(statusEl) statusEl.textContent = msg; }
-    window.addEventListener("error", (e)=>{ console.error(e.error || e.message); setStatus("Error: " + (e.error?.message || e.message)); });
+/* ================== selección de equipo ================== */
+const DATA_DIR = "data";
+const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
+const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
 
-    const DATA_DIR = "data";
-    const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
-    const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
+const sel = document.getElementById("teamSelect");
+sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
+sel.value = "oap";
 
-    const sel = document.getElementById("teamSelect");
-    sel.innerHTML = TEAMS.map(k=>`<option value="${k}">${TEAM_LABELS[k]||k.toUpperCase()}</option>`).join("");
-    sel.value = "oap";
+/* ================== conteos OAP (manuales) ================== */
+const OAP_MANUAL_COUNTS = {
+  "ANTES": { "4p": 6, "ti": 19, "gestion_conocimiento": 3, "mipg": 8, "administrativo": 8 },
+  "DESPUÉS": { "4p": 8, "ti": 20, "gestion_conocimiento": 3, "mipg": 6, "administrativo": 6 }
+};
+const TEAM_FIXED_COUNTS = {};
 
-    /* ================== CONTEOS MANUALES (OAP General) ================== */
-    const OAP_MANUAL_COUNTS = {
-      "ANTES": { "4p": 6, "ti": 19, "gestion_conocimiento": 3, "mipg": 8, "administrativo": 8 },
-      "DESPUÉS": { "4p": 8, "ti": 20, "gestion_conocimiento": 3, "mipg": 6, "administrativo": 6 }
-    };
+/* ================== network (sin cambios funcionales) ================== */
+const LEVEL_Y_GAP = 130;
+const MIN_GAP = 300;
 
-    const TEAM_FIXED_COUNTS = { /* opcional */ };
+let currentKey = "oap";
+let MODE = "DESPUÉS";
+let orgBefore = null, orgAfter = null;
 
-    const LEVEL_Y_GAP = 130;
-    const MIN_GAP = 300;
+let JEFA_LABEL = "Jefa OAP";
+let JEFA_PERSON = "";
+const STICKY_ID = "GLOBAL_OAP_JEFA";
+let TEAM_ROOT_ID = null;
 
-    let currentKey = "oap";
-    let MODE = "DESPUÉS";
-    let orgBefore = null, orgAfter = null;
+let LEADER_NODE_ID_BEFORE = null;
+let LEADER_NODE_ID_AFTER  = null;
 
-    let JEFA_LABEL = "Jefa OAP";
-    let JEFA_PERSON = "";
-    const STICKY_ID = "GLOBAL_OAP_JEFA";
-    let TEAM_ROOT_ID = null;
+const STRATEGIST_ID = "OAP_STRATEGIST";
+let STRATEGIST = null;
 
-    /* líderes por modo */
-    let LEADER_NODE_ID_BEFORE = null;
-    let LEADER_NODE_ID_AFTER  = null;
+const SIDE_OFFSET = 220;
+const JEFA_SIDE_OFFSET = 220;
 
-    /* Analista estratégica (solo OAP) */
-    const STRATEGIST_ID = "OAP_STRATEGIST";
-    let STRATEGIST = null; // {label, person}
+const nodes = new vis.DataSet();
+const edges = new vis.DataSet();
+const network = new vis.Network(
+  document.getElementById("network"),
+  { nodes, edges },
+  baseOptions()
+);
 
-    const SIDE_OFFSET = 220;
-    const JEFA_SIDE_OFFSET = 220;
+network.setOptions({
+  nodes:{
+    chosen:{ node:(values)=>{ values.shadow=true; values.shadowSize=28; values.shadowColor="rgba(124,58,237,.20)"; values.borderWidth=2;
+      values.color = values.color || {}; values.color.border = getComputedStyle(document.body).getPropertyValue('--accent').trim(); } }
+  },
+  edges:{ chosen:{ edge:(values)=>{ values.width=2; values.color=getComputedStyle(document.body).getPropertyValue('--accent').trim(); } } }
+});
 
-    const nodes = new vis.DataSet();
-    const edges = new vis.DataSet();
-    const network = new vis.Network(
-      document.getElementById("network"),
-      { nodes, edges },
-      baseOptions()
-    );
+function baseOptions(){
+  return {
+    layout:{ hierarchical:{ enabled:true, direction:"UD", levelSeparation:LEVEL_Y_GAP, nodeSpacing:MIN_GAP, parentCentralization:true, blockShifting:false, edgeMinimization:true, sortMethod:"directed" } },
+    physics:false,
+    nodes:{ shape:"box", margin:10, borderWidth:1,
+      color:{ background:getComputedStyle(document.body).getPropertyValue('--node-bg').trim(), border:getComputedStyle(document.body).getPropertyValue('--node-border').trim() },
+      font:{ size:14, face:"system-ui, Segoe UI, Roboto, Arial, sans-serif", color:"#111827" },
+      shadow:{ enabled:true, color:"rgba(0,0,0,.08)", size:20, x:0, y:6 }, shapeProperties:{ borderRadius:12 } },
+    edges:{ color:{ color:'#cfd5e3', highlight:'#a7b0c6' }, width:1.2, smooth:{ enabled:true, type:"cubicBezier", forceDirection:"vertical", roundness:0.5 } },
+    interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true, tooltipDelay:100 }
+  };
+}
 
-    /* Glow/realce en hover/selección */
-    network.setOptions({
-      nodes:{
-        chosen:{
-          node: (values)=>{
-            values.shadow = true;
-            values.shadowSize = 28;
-            values.shadowColor = "rgba(124,58,237,.20)";
-            values.borderWidth = 2;
-            values.color = values.color || {};
-            values.color.border = getComputedStyle(document.body).getPropertyValue('--accent').trim();
-          }
-        }
-      },
-      edges:{
-        chosen:{
-          edge: (values)=>{ values.width = 2; values.color = getComputedStyle(document.body).getPropertyValue('--accent').trim(); }
-        }
-      }
-    });
+const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#7c3aed';
+const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
+function stripTrailingCount(s){ return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim(); }
+function splitTitlePerson(lbl){ if(!lbl) return {title:"", person:""}; const base=cleanPhase(lbl); const m=base.match(/^(.+?)\s*[–-]\s*(.+)$/); return m?{title:m[1].trim(), person:m[2].trim()}:{title:base, person:""}; }
 
-    const expandedRoot  = new Set();
-    const openedPersons = new Set();
-    const openedSubroles = new Set();
-    const sidePersons   = new Set();
+function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear(); }
+function mountBox(id,label,level,extra={}){ nodes.add(Object.assign({ id,label,level,shape:"box",color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
+function addEdge(from,to,extra={}){ const id=`${from}-${to}`; if(!edges.get(id)) edges.add(Object.assign({ id,from,to }, extra)); return id; }
+function getLevel(nodeId){ const n=nodes.get(nodeId); return (n && typeof n.level==='number')?n.level:null; }
+function getSubrolesArr(data,nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
+function removePerson(parentId){ const pid=`${parentId}_P`; if(openedPersons.has(pid)){ try{nodes.remove(pid);}catch(_){} try{edges.remove(`${parentId}-${pid}`);}catch(_){} openedPersons.delete(pid);} }
+function removeSidePerson(parentId){ const sid=`${parentId}_S`; if(sidePersons.has(sid)){ try{nodes.remove(sid);}catch(_){} try{edges.remove(`${parentId}-${sid}`);}catch(_){} sidePersons.delete(sid);} }
 
-    /* IDs de las líneas punteadas estratega → equipos (solo OAP) */
-    const dottedArcIds = new Set();
+function closeSubtree(nodeId,data){
+  const children = getSubrolesArr(data,nodeId) || [];
+  children.forEach(ch => {
+    closeSubtree(ch.id,data);
+    removePerson(ch.id); removeSidePerson(ch.id);
+    try{edges.remove(`${nodeId}-${ch.id}`);}catch(_){}
+    try{nodes.remove(ch.id);}catch(_){}
+    openedSubroles.delete(ch.id);
+  });
+  openedSubroles.delete(nodeId);
+}
 
-    function baseOptions(){
-      return {
-        layout: { hierarchical: {
-          enabled:true, direction:"UD",
-          levelSeparation: LEVEL_Y_GAP, nodeSpacing: MIN_GAP,
-          parentCentralization:true, blockShifting:false, edgeMinimization:true,
-          sortMethod:"directed"
-        }},
-        physics:false,
-        nodes:{
-          shape:"box",
-          margin:10,
-          borderWidth:1,
-          color:{ background:getComputedStyle(document.body).getPropertyValue('--node-bg').trim(),
-                  border:getComputedStyle(document.body).getPropertyValue('--node-border').trim() },
-          font:{ size:14, face:"system-ui, Segoe UI, Roboto, Arial, sans-serif", color:"#111827" },
-          shadow:{ enabled:true, color:"rgba(0,0,0,.08)", size:20, x:0, y:6 },
-          shapeProperties:{ borderRadius:12 }
-        },
-        edges:{
-          color:{ color:'#cfd5e3', highlight:'#a7b0c6' },
-          width:1.2,
-          smooth:{ enabled:true, type:"cubicBezier", forceDirection:"vertical", roundness:0.5 }
-        },
-        interaction:{ hover:true, selectable:true, dragNodes:false, zoomView:true, dragView:true, tooltipDelay:100 }
-      };
+function applyVerticalByLevel(y0=0){ const all=nodes.get(); nodes.update(all.map(n => (typeof n.level==='number')?{id:n.id,y:y0+n.level*LEVEL_Y_GAP}:{id:n.id})); }
+function childrenOf(parentId){ return edges.get({ filter:e=>e.from===parentId }).map(e=>e.to).filter(id => !!nodes.get(id)); }
+function spreadChildren(parentId,gap=MIN_GAP){ const kids=childrenOf(parentId); if(kids.length<2) return;
+  const p=network.getPositions([parentId])[parentId]||{x:0,y:0}; const posKids=network.getPositions(kids);
+  kids.sort((a,b)=>(posKids[a]?.x||0)-(posKids[b]?.x||0)); const total=(kids.length-1)*gap; let startX=p.x-total/2;
+  nodes.update(kids.map((id,i)=>({id,x:Math.round(startX+i*gap)})));
+}
+function applyHorizontalSpacingAll(gap=MIN_GAP){ const parents=[...new Set(edges.get().map(e=>e.from))]; parents.sort((a,b)=>((nodes.get(a)?.level||0)-(nodes.get(b)?.level||0))); parents.forEach(pid=>spreadChildren(pid,gap)); }
+function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n=>({id:n.id,fixed:{x:fix,y:fix}}))); }
+function unfixAllPositions(){ nodes.update(nodes.get().map(n=>({id:n.id,fixed:{x:false,y:false}}))); }
+
+const expandedRoot=new Set(); const openedPersons=new Set(); const openedSubroles=new Set(); const sidePersons=new Set(); const dottedArcIds=new Set();
+
+function placeSidePersonFor(rootId,label,offset=SIDE_OFFSET){
+  if(!label||!label.trim()) return;
+  const sid=`${rootId}_S`; const rootNode=nodes.get(rootId); if(!rootNode) return;
+  if(!nodes.get(sid)){
+    mountBox(sid,label.trim(),rootNode.level,{ font:{ italics:true }, color:{ background:"#f8fafc", border:"#d1d5db" }, shapeProperties:{ borderRadius:999 } });
+    addEdge(rootId,sid,{ dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } });
+    sidePersons.add(sid);
+  }
+  const r=network.getPositions([rootId])[rootId]||{x:0,y:0};
+  nodes.update({ id:sid,x:r.x+offset,y:r.y,level:rootNode.level,fixed:{x:true,y:true} });
+}
+function keepSideAligned(rootId,offset=SIDE_OFFSET){ const sid=`${rootId}_S`; if(!nodes.get(sid)||!nodes.get(rootId)) return; const r=network.getPositions([rootId])[rootId]; const level=getLevel(rootId)??0; nodes.update({id:sid,x:r.x+offset,y:r.y,level}); }
+function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId,JEFA_PERSON,JEFA_SIDE_OFFSET); }
+function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId,JEFA_SIDE_OFFSET); }
+
+function clearDottedArcs(){ dottedArcIds.forEach(id=>{ try{edges.remove(id);}catch(_){}}); dottedArcIds.clear(); }
+function buildDottedArcsToTeams(roles){
+  clearDottedArcs();
+  if(!STRATEGIST || !STRATEGIST.label || !nodes.get(STRATEGIST_ID)) return;
+  (roles||[]).forEach(r=>{
+    if(!nodes.get(r.id)) return;
+    const id=`DOT_${STRATEGIST_ID}_${r.id}`;
+    edges.add({ id,from:STRATEGIST_ID,to:r.id,dashes:true,arrows:'', color:{color:'#9aa3b2'}, width:1.6,
+      smooth:{enabled:true,type:'horizontal',forceDirection:'vertical',roundness:0.35}});
+    dottedArcIds.add(id);
+  });
+}
+
+function stabilizeAndFit(anim=200){
+  setStatus("Ajustando layout…"); unfixAllPositions(); applyVerticalByLevel(0);
+  setTimeout(()=>{ applyHorizontalSpacingAll(MIN_GAP);
+    if(currentKey==='oap'){
+      if(nodes.get(orgAfter?.id||orgBefore?.id)){ nodes.update({id:(MODE==="ANTES"?orgBefore.id:orgAfter.id),x:0}); }
+      if(nodes.get(STRATEGIST_ID)){ nodes.update({id:STRATEGIST_ID,x:0}); }
+      keepJefaPersonSideAlignedFor((MODE==="ANTES")?orgBefore.id:orgAfter.id);
+      if(nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID,SIDE_OFFSET);
     }
-
-    const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#7c3aed';
-    const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
-
-    function stripTrailingCount(s){
-      return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim();
-    }
-
-    function splitTitlePerson(lbl){
-      if(!lbl) return {title:"", person:""};
-      const base = cleanPhase(lbl);
-      const m = base.match(/^(.+?)\s*[–-]\s*(.+)$/);
-      return m ? { title:m[1].trim(), person:m[2].trim() } : { title:base, person:"" };
-    }
-
-    function clearAll(){
-      nodes.clear(); edges.clear();
-      expandedRoot.clear(); openedPersons.clear();
-      openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear();
-    }
-    function mountBox(id, label, level, extra={}){ nodes.add(Object.assign({ id, label, level, shape:"box", color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
-    function addEdge(from, to, extra={}){ const id = `${from}-${to}`; if(!edges.get(id)) edges.add(Object.assign({ id, from, to }, extra)); return id; }
-    function getLevel(nodeId){ const n = nodes.get(nodeId); return (n && typeof n.level === 'number') ? n.level : null; }
-    function getSubrolesArr(data, nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
-
-    function removePerson(parentId){
-      const pid = `${parentId}_P`;
-      if (openedPersons.has(pid)){ try{ nodes.remove(pid);}catch(_){} try{ edges.remove(`${parentId}-${pid}`);}catch(_){} openedPersons.delete(pid); }
-    }
-    function removeSidePerson(parentId){
-      const sid = `${parentId}_S`;
-      if (sidePersons.has(sid)){ try{ nodes.remove(sid);}catch(_){} try{ edges.remove(`${parentId}-${sid}`);}catch(_){} sidePersons.delete(sid); }
-    }
-    function closeSubtree(nodeId, data){
-      const children = getSubrolesArr(data, nodeId) || [];
-      children.forEach(ch => {
-        closeSubtree(ch.id, data);
-        removePerson(ch.id); removeSidePerson(ch.id);
-        try{ edges.remove(`${nodeId}-${ch.id}`);}catch(_){}
-        try{ nodes.remove(ch.id);}catch(_){}
-        openedSubroles.delete(ch.id);
-      });
-      openedSubroles.delete(nodeId);
-    }
-
-    /* ------ Layout helpers ------ */
-    function applyVerticalByLevel(y0=0){
-      const all = nodes.get();
-      nodes.update(all.map(n =>
-        (typeof n.level==='number')
-          ? { id:n.id, y: y0 + n.level*LEVEL_Y_GAP }
-          : { id:n.id }
-      ));
-    }
-    function childrenOf(parentId){
-      return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
-    }
-    function spreadChildren(parentId, gap = MIN_GAP){
-      const kids = childrenOf(parentId); if(kids.length < 2) return;
-      const p = network.getPositions([parentId])[parentId] || {x:0,y:0};
-      const posKids = network.getPositions(kids);
-      kids.sort((a,b) => (posKids[a]?.x || 0) - (posKids[b]?.x || 0));
-      const total = (kids.length - 1) * gap; let startX = p.x - total / 2;
-      nodes.update(kids.map((id, i) => ({ id, x: Math.round(startX + i * gap) })));
-    }
-    function applyHorizontalSpacingAll(gap=MIN_GAP){
-      const parents = Array.from(new Set(edges.get().map(e => e.from)));
-      parents.sort((a,b) => ((nodes.get(a)?.level||0) - (nodes.get(b)?.level||0)));
-      parents.forEach(pid => spreadChildren(pid, gap));
-    }
-    function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
-    function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
-
-    /* Etiquetas laterales (chip) */
-    function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
-      if (!label || !label.trim()) return;
-      const sid = `${rootId}_S`;
-      const rootNode = nodes.get(rootId); if(!rootNode) return;
-      if (!nodes.get(sid)){
-        mountBox(sid, label.trim(), rootNode.level, {
-          font:{ italics:true, color:"#374151" },
-          color:{ background:"#f8fafc", border:"#d1d5db" },
-          shapeProperties:{ borderRadius:999 }
-        });
-        addEdge(rootId, sid, { dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } });
-        sidePersons.add(sid);
-      }
-      const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
-      nodes.update({ id: sid, x: r.x + offset, y: r.y, level: rootNode.level, fixed:{ x:true, y:true } });
-    }
-    function keepSideAligned(rootId, offset = SIDE_OFFSET){
-      const sid = `${rootId}_S`;
-      if (!nodes.get(sid) || !nodes.get(rootId)) return;
-      const r = network.getPositions([rootId])[rootId];
-      const level = getLevel(rootId) ?? 0;
-      nodes.update({ id: sid, x: r.x + offset, y: r.y, level });
-    }
-    function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
-    function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
-
-    /* Dotted bridges estratega → equipos (solo en OAP) */
-    function clearDottedArcs(){
-      dottedArcIds.forEach(id => { try{ edges.remove(id);}catch(_){} });
-      dottedArcIds.clear();
-    }
-    function buildDottedArcsToTeams(roles){
-      clearDottedArcs();
-      if (!STRATEGIST || !STRATEGIST.label || !nodes.get(STRATEGIST_ID)) return;
-      (roles||[]).forEach(r=>{
-        if(!nodes.get(r.id)) return;
-        const id = `DOT_${STRATEGIST_ID}_${r.id}`;
-        edges.add({
-          id, from: STRATEGIST_ID, to: r.id,
-          dashes: true, arrows: '',
-          color: {color:'#9aa3b2'},
-          width: 1.6,
-          smooth: { enabled:true, type:'horizontal', forceDirection:'vertical', roundness:0.35 }
-        });
-        dottedArcIds.add(id);
-      });
-    }
-
-    function stabilizeAndFit(anim=200){
-      setStatus("Ajustando layout…");
-      unfixAllPositions();
-      applyVerticalByLevel(0);
-
-      setTimeout(() => {
-        applyHorizontalSpacingAll(MIN_GAP);
-
-        if (currentKey === 'oap'){
-          if (nodes.get(orgAfter?.id || orgBefore?.id)) { nodes.update({ id:(MODE==="ANTES"?orgBefore.id:orgAfter.id), x: 0 }); }
-          if (nodes.get(STRATEGIST_ID)) { nodes.update({ id: STRATEGIST_ID, x: 0 }); }
-          keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
-          if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, SIDE_OFFSET);
-        }
-
-        setTimeout(() => {
-          fixAllPositions(true);
-          network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
-          setStatus("Listo");
-        }, 0);
-      }, 0);
-    }
-
-    function togglePersonNode(roleId, personLabel, levelIfUnknown, planta=false){
-      const label = (personLabel || "").trim();
-      if(!label) return;
-      const pid = `${roleId}_P`;
-      if(openedPersons.has(pid)){
-        try{ nodes.remove(pid);}catch(_){}
-        try{ edges.remove(`${roleId}-${pid}`);}catch(_){}
-        openedPersons.delete(pid);
-        return;
-      }
-      const roleLevel = getLevel(roleId);
-      const personLevel = (roleLevel!=null ? roleLevel + 1 : (levelIfUnknown || 3));
-      const extra = { font:{ italics:true } };
-      if(planta) extra.color = { background:"#efe9ff", border:"#7a5cff" };
-      mountBox(pid, label, personLevel, extra);
-      addEdge(roleId, pid);
-      openedPersons.add(pid);
-    }
-
-    function toggleSubroles(roleId, subrolesArr, dataCtx){
-      if(!subrolesArr || !subrolesArr.length) return;
-
-      if(openedSubroles.has(roleId)){
-        subrolesArr.forEach(sr=>{
-          const rid = sr.id, pid = `${rid}_P`;
-          try{ nodes.remove(pid);}catch(_){}
-          try{ edges.remove(`${rid}-${pid}`);}catch(_){}
-          try{ nodes.remove(rid);}catch(_){}
-          try{ edges.remove(`${roleId}-${rid}`);}catch(_){}
-          openedPersons.delete(pid);
-        });
-        openedSubroles.delete(roleId);
-        return;
-      }
-
-      const roleLevel = getLevel(roleId) ?? 3;
-
-      const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
-      const isLeaderParent = (CURRENT_LEADER_ID && roleId === CURRENT_LEADER_ID);
-
-      const subLevel = roleLevel + (isLeaderParent ? 2 : 1);
-      const personLevel = subLevel + 1;
-
-      subrolesArr.forEach(sr=>{
-        mountBox(sr.id, sr.name, subLevel);
-        addEdge(roleId, sr.id);
-
-        const hasGrandkids = !!getSubrolesArr(dataCtx, sr.id)?.length;
-        const personText = (sr.person || "").trim();
-
-        if (personText){
-          mountBox(`${sr.id}_P`, personText, personLevel, { font:{ italics:true } });
-          addEdge(sr.id, `${sr.id}_P`); openedPersons.add(`${sr.id}_P`);
-        } else if (!hasGrandkids) {
-          mountBox(`${sr.id}_P`, "Nuevo perfil", personLevel, { font:{ italics:true } });
-          addEdge(sr.id, `${sr.id}_P`); openedPersons.add(`${sr.id}_P`);
-        }
-      });
-
-      openedSubroles.add(roleId);
-    }
-
-    function rewireUnderLeaderIfAny(rootId, roles, leaderIdFromMeta){
-      let leaderId = leaderIdFromMeta || null;
-      if(!leaderId){
-        const cand = roles.find(r=>/^\s*l[ií]der\s*$/i.test(r.name));
-        leaderId = cand?.id || null;
-      }
-      if(!leaderId || !nodes.get(leaderId)) return;
-
-      const base = getLevel(rootId) ?? 0;
-      nodes.update({ id: leaderId, level: base + 1 });
-      roles.forEach(r=>{
-        if(r.id === leaderId) return;
-        try{ edges.remove(`${rootId}-${r.id}`);}catch(_){}
-        addEdge(leaderId, r.id);
-        nodes.update({ id: r.id, level: base + 2 });
-      });
-    }
-
-    function refreshButtons(){
-      const a = document.getElementById("btnAntes");
-      const d = document.getElementById("btnDespues");
-      a.classList.toggle("active", MODE==="ANTES"); d.classList.toggle("active", MODE==="DESPUÉS");
-      document.body.classList.toggle("mode-antes",   MODE==="ANTES");
-      document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
-      a.style.setProperty("--btn-accent","var(--accent)"); d.style.setProperty("--btn-accent","var(--accent)");
-
-      // si el drawer está abierto y en vista de pestañas, sincroniza la pestaña
-      if (drawerOpen && currentChartView === 'tabs') {
-        activeChartTab = MODE;
-        renderDrawer();
-      }
-    }
-
-    function updateCountsUI(){}
-
-    async function enrichCountsForOAP(roles){
-      if(currentKey !== "oap" || !roles) return;
-      const modeKey = (MODE === "ANTES") ? "ANTES" : "DESPUÉS";
-
-      for (const r of (roles || [])){
-        const baseLabel = stripTrailingCount(r.name);
-        const routeKey  = (r.route || "").trim();
-        const manual    = routeKey ? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
-
-        if (typeof manual === "number"){
-          nodes.update({ id: r.id, label: `${baseLabel} (${manual} roles)` });
-        } else {
-          nodes.update({ id: r.id, label: baseLabel });
-        }
-      }
-      buildDottedArcsToTeams(roles);
-    }
-
-    function baseNetworkOptions(){ network.setOptions(baseOptions()); }
-
-    /* ===== OAP (Jefa + Analista + Equipos) ===== */
-    function mountOAP(view="DESPUÉS"){
-      MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
-      const data = (view==="ANTES") ? orgBefore : orgAfter;
-      const {title, person} = splitTitlePerson(data.label);
-      JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
-
-      mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
-      nodes.update({ id:data.id, x: 0 });
-
-      const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
-      if (hasStrategist){
-        mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
-        addEdge(data.id, STRATEGIST_ID);
-        nodes.update({ id: STRATEGIST_ID, x: 0 });
-      }
-
-      const levelTeams = hasStrategist ? 2 : 1;
-      (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
-
-      updateCountsUI();
-      enrichCountsForOAP(data.roles);
-      stabilizeAndFit(160);
-    }
-
-    function addCountsToNodes(data, overrides){
-      if(!data || !data.subroles) return;
-      for(const parentId in data.subroles){
-        const node = nodes.get(parentId); if(!node) continue;
-        const base = stripTrailingCount(node.label || "");
-        const nOverride = overrides && overrides[base];
-        const n = (nOverride != null) ? nOverride : data.subroles[parentId].length;
-        nodes.update({ id: parentId, label: `${base} (${n} roles)` });
-      }
-    }
-
-    /* ===== Vista por equipo (sin Jefa) ===== */
-    function mountTeam(view="DESPUÉS"){
-      MODE = view; baseNetworkOptions(); refreshButtons();
-
-      clearAll();
-      try{ nodes.remove(STICKY_ID); }catch(_){}
-      try{
-        edges.get().forEach(e=>{
-          if(e.from===STICKY_ID || e.to===STICKY_ID) edges.remove(e.id);
-        });
-      }catch(_){}
-
-      const data = (view==="ANTES") ? orgBefore : orgAfter;
-
-      TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
-      mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 0);
-
-      (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(TEAM_ROOT_ID, r.id); });
-
-      const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
-      rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
-
-      if (CURRENT_LEADER_ID && nodes.get(CURRENT_LEADER_ID)) {
-        nodes.update({
-          id: CURRENT_LEADER_ID,
-          color:{ background:getComputedStyle(document.body).getPropertyValue('--leader-bg').trim(),
-                  border: getComputedStyle(document.body).getPropertyValue('--leader-border').trim() },
-          font:{ bold:true }
-        });
-      }
-
-      const teamOverrides =
-        (TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES") ? "ANTES" : "DESPUÉS"]) || null;
-      addCountsToNodes(data, teamOverrides);
-
-      updateCountsUI();
-      stabilizeAndFit(160);
-
-      if (drawerOpen) renderDrawer();
-    }
-
-    async function loadTeam(key){
-      setStatus("Cargando…");
-      try{
-        const res = await fetch(`${DATA_DIR}/${key}.json?cb=${Date.now()}`);
-        const data = await res.json();
-        const prefix = key.toUpperCase();
-
-        function mapRoles(block){
-          return (block.roles || []).map(r => ({
-            id:`${prefix}_${r.id}`, name:r.name, person:r.person||"", planta:!!r.planta, route:r.route||""
-          }));
-        }
-        function mapSubroles(block){
-          const out = {};
-          if(block.subroles){
-            for(const roleId in block.subroles){
-              out[`${prefix}_${roleId}`] = block.subroles[roleId].map(sr=>({
-                id:`${prefix}_${sr.id}`, name:sr.name, person:sr.person||"", planta:!!sr.planta
-              }));
-            }
-          }
-          return out;
-        }
-
-        LEADER_NODE_ID_BEFORE = data.meta?.leaderIdBefore ? `${prefix}_${data.meta.leaderIdBefore}` : null;
-        LEADER_NODE_ID_AFTER  = data.meta?.leaderIdAfter  ? `${prefix}_${data.meta.leaderIdAfter}`  : null;
-        if (data.meta?.leaderId) {
-          const fallback = `${prefix}_${data.meta.leaderId}`;
-          if (!LEADER_NODE_ID_BEFORE) LEADER_NODE_ID_BEFORE = fallback;
-          if (!LEADER_NODE_ID_AFTER)  LEADER_NODE_ID_AFTER  = fallback;
-        }
-
-        STRATEGIST = data.meta?.strategist
-          ? { label: (data.meta.strategist.label||"").trim(), person: (data.meta.strategist.person||"").trim() }
-          : null;
-
-        orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles: mapRoles(data.before), subroles: mapSubroles(data.before) };
-        orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles: mapRoles(data.after),  subroles: mapSubroles(data.after) };
-
-        if(key==="oap"){
-          const {title, person} = splitTitlePerson(orgAfter.label);
-          if(title) JEFA_LABEL = cleanPhase(title);
-          if(person) JEFA_PERSON = person;
-        }
-
-        document.getElementById("title").innerHTML =
-          `Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year">${new Date().getFullYear()}</span>`;
-
-        currentKey = key; sel.value = key;
-        if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
-        setStatus("Listo");
-      }catch(err){
-        console.error(err);
-        setStatus("Error al cargar");
-        alert(`No pude cargar ${DATA_DIR}/${key}.json`);
-      }
-    }
-
-    /* -------- Interacción organigrama -------- */
-    network.on("click", (p)=>{
-      if(!p.nodes.length) return;
-      const id = p.nodes[0];
-
-      if(currentKey === "oap"){
-        const data = (MODE==="ANTES") ? orgBefore : orgAfter;
-
-        if(id===data.id){
-          const sid = `${data.id}_S`;
-          if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
-
-          if(expandedRoot.has(data.id)){
-            (data.roles||[]).forEach(r=>{
-              closeSubtree(r.id, data);
-              removePerson(r.id); removeSidePerson(r.id);
-              try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
-              try{ nodes.remove(r.id);}catch(_){}
-            });
-            if (nodes.get(STRATEGIST_ID)){
-              removePerson(STRATEGIST_ID);
-              try{ edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){}
-              try{ nodes.remove(STRATEGIST_ID);}catch(_){}
-            }
-            clearDottedArcs();
-            expandedRoot.delete(data.id);
-          }else{
-            if (STRATEGIST && STRATEGIST.label && !nodes.get(STRATEGIST_ID)){
-              mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
-              addEdge(data.id, STRATEGIST_ID);
-              nodes.update({ id: STRATEGIST_ID, x: 0 });
-            }
-            const levelTeams = (STRATEGIST && STRATEGIST.label) ? 2 : 1;
-            (data.roles||[]).forEach(r=>{
-              if(!nodes.get(r.id)) mountBox(r.id, r.name, levelTeams);
-              addEdge(data.id, r.id);
-            });
-            buildDottedArcsToTeams(data.roles);
-            expandedRoot.add(data.id);
-          }
-          stabilizeAndFit(120);
-          return;
-        }
-
-        if (id === STRATEGIST_ID){
-          togglePersonNode(STRATEGIST_ID, STRATEGIST?.person || "", 2, false);
-          nodes.update({ id: STRATEGIST_ID, x: 0 });
-          stabilizeAndFit(120);
-          return;
-        }
-
-        const role = (data.roles||[]).find(r=>r.id===id);
-        if(role && role.route){ loadTeam(role.route); return; }
-        if(role && !role.route){ togglePersonNode(role.id, role.person, 3, !!role.planta); stabilizeAndFit(120); }
-        return;
-      }
-
-      /* Vista equipo (sin Jefa) */
-      const data = (MODE==="ANTES") ? orgBefore : orgAfter;
-
-      if(id===TEAM_ROOT_ID){
-        if(expandedRoot.has(TEAM_ROOT_ID)){
-          (data.roles||[]).forEach(r=>{
-            closeSubtree(r.id, data); removePerson(r.id); removeSidePerson(r.id);
-            try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
-            try{ nodes.remove(r.id);}catch(_){}
-          });
-          expandedRoot.delete(TEAM_ROOT_ID);
-        }else{
-          (data.roles||[]).forEach(r=>{
-            if(!nodes.get(r.id)) mountBox(r.id, r.name, 1);
-            addEdge(TEAM_ROOT_ID, r.id);
-          });
-
-          const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
-          rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
-
-          expandedRoot.add(TEAM_ROOT_ID);
-        }
-        stabilizeAndFit(120);
-        return;
-      }
-
-      const role = (data.roles||[]).find(r=>r.id===id);
-      if(role){
-        const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
-
-        if (role.id === CURRENT_LEADER_ID){
-          const sid = `${role.id}_S`;
-          if (sidePersons.has(sid)){ removeSidePerson(role.id); }
-          else { placeSidePersonFor(role.id, (role.person||"Nuevo perfil"), SIDE_OFFSET); }
-          const arr = data.subroles?.[role.id];
-          if(arr && arr.length) toggleSubroles(role.id, arr, data);
-        }else{
-          togglePersonNode(role.id, role.person, 3, !!role.planta);
-          const arr = data.subroles?.[role.id];
-          if(arr && arr.length) toggleSubroles(role.id, arr, data);
-        }
-        stabilizeAndFit(120);
-        return;
-      }
-
-      const nested = getSubrolesArr(data, id);
-      if (nested && nested.length){
-        toggleSubroles(id, nested, data);
-        stabilizeAndFit(120);
-        return;
-      }
-    });
-
-    /* ======= Drawer (barras) ======= */
-    let resumenData = null;
-    let drawerOpen = false;
-    let currentChartView = 'tabs'; // 'tabs' | 'compare'
-    let activeChartTab = 'DESPUÉS'; // ANTES | DESPUÉS
-    let includeSubdiv = false;
-
-    async function ensureResumen(){
-      if (resumenData) return resumenData;
-      const res = await fetch(`${DATA_DIR}/resumen.json?cb=${Date.now()}`);
-      resumenData = await res.json();
-      return resumenData;
-    }
-
-    function fmt(n){ return (n===null || n===undefined || Number.isNaN(n)) ? '—' : String(n); }
-
-    function getScopeKeys(){
-      if (currentKey === 'oap') return ['4p','ti','gestion_conocimiento','mipg','administrativo'];
-      return [currentKey];
-    }
-
-    function buildRowsForScope(){
-      const data = resumenData?.equipos || {};
-      const keys = getScopeKeys();
-      const rows = [];
-
-      keys.forEach(k=>{
-        const e = data[k];
-        if(!e) return;
-        rows.push({ label: e.label || k.toUpperCase(), antes: Number(e.antes?.total||0), despues: Number(e.despues?.total||0) });
-        if (includeSubdiv && Array.isArray(e.subdivisiones)){
-          e.subdivisiones.forEach(s=>{
-            rows.push({ label: '• ' + s.label, antes: Number(s.antes||0), despues: Number(s.despues||0) });
-          });
-        }
-      });
-      return rows;
-    }
-
-    function renderDrawer(){
-      if (!drawerOpen) return;
-      const scope = TEAM_LABELS[currentKey] || currentKey.toUpperCase();
-      document.getElementById('drawerScope').textContent = `Ámbito: ${scope}`;
-
-      const wrap = document.getElementById('chartWrap');
-      const foot = document.getElementById('chartFoot');
-      const rows = buildRowsForScope();
-
-      const maxVal = rows.reduce((m,r)=>{
-        if (currentChartView==='compare') return Math.max(m, r.antes||0, r.despues||0);
-        return Math.max(m, (activeChartTab==='ANTES'?r.antes:r.despues)||0);
-      }, 1);
-
-      let totalA=0,totalD=0;
-      rows.forEach(r=>{ totalA += (r.antes||0); totalD += (r.despues||0); });
-
-      let html = '';
-      rows.forEach(r=>{
-        if (currentChartView==='compare'){
-          const wA = Math.round(((r.antes||0)/maxVal)*100);
-          const wD = Math.round(((r.despues||0)/maxVal)*100);
-          html += `
-            <div class="chart-row">
-              <div class="chart-label">${r.label}</div>
-              <div>
-                <div class="bar-bg" title="Antes: ${fmt(r.antes)}">
-                  <div class="bar antes" style="width:${wA}%"></div>
-                </div>
-                <div class="bar-bg" title="Después: ${fmt(r.despues)}" style="margin-top:6px">
-                  <div class="bar despues" style="width:${wD}%"></div>
-                </div>
-              </div>
-            </div>`;
-        } else {
-          const val = (activeChartTab==='ANTES'?r.antes:r.despues)||0;
-          const w = Math.round((val/maxVal)*100);
-          html += `
-            <div class="chart-row">
-              <div class="chart-label">${r.label}</div>
-              <div class="bar-bg" title="${activeChartTab}: ${fmt(val)}">
-                <div class="bar ${activeChartTab==='ANTES'?'antes':'despues'}" style="width:${w}%"></div>
-              </div>
-            </div>`;
-        }
-      });
-
-      wrap.innerHTML = html;
-      foot.textContent =
-        (currentChartView==='compare')
-        ? `Total — Antes: ${totalA} · Después: ${totalD}`
-        : (activeChartTab==='ANTES' ? `Total — ${totalA}` : `Total — ${totalD}`);
-    }
-
-    function openDrawer(){
-      drawerOpen = true;
-      document.getElementById('drawer').classList.add('open');
-      document.getElementById('drawerBackdrop').classList.add('open');
-      document.getElementById('drawer').setAttribute('aria-hidden','false');
-    }
-    function closeDrawer(){
-      drawerOpen = false;
-      document.getElementById('drawer').classList.remove('open');
-      document.getElementById('drawerBackdrop').classList.remove('open');
-      document.getElementById('drawer').setAttribute('aria-hidden','true');
-    }
-
-    // Handlers Drawer
-    document.getElementById('btnAnalisis').addEventListener('click', async ()=>{
-      if (!drawerOpen){
-        await ensureResumen();
-        openDrawer();
-        renderDrawer();
+    setTimeout(()=>{ fixAllPositions(true); network.fit({animation:{duration:anim,easingFunction:"easeInOutQuad"}}); setStatus("Listo"); },0);
+  },0);
+}
+
+function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
+  const label=(personLabel||"").trim(); if(!label) return;
+  const pid=`${roleId}_P`;
+  if(openedPersons.has(pid)){ try{nodes.remove(pid);}catch(_){ } try{edges.remove(`${roleId}-${pid}`);}catch(_){ } openedPersons.delete(pid); return; }
+  const roleLevel=getLevel(roleId); const personLevel=(roleLevel!=null?roleLevel+1:(levelIfUnknown||3));
+  const extra={ font:{ italics:true } }; if(planta) extra.color={ background:"#efe9ff", border:"#7a5cff" };
+  mountBox(pid,label,personLevel,extra); addEdge(roleId,pid); openedPersons.add(pid);
+}
+
+function toggleSubroles(roleId,subrolesArr,dataCtx){
+  if(!subrolesArr || !subrolesArr.length) return;
+  if(openedSubroles.has(roleId)){
+    subrolesArr.forEach(sr=>{ const rid=sr.id, pid=`${rid}_P`; try{nodes.remove(pid);}catch(_){ } try{edges.remove(`${rid}-${pid}`);}catch(_){ } try{nodes.remove(rid);}catch(_){ } try{edges.remove(`${roleId}-${rid}`);}catch(_){ } openedPersons.delete(pid); });
+    openedSubroles.delete(roleId); return;
+  }
+  const roleLevel=getLevel(roleId)??3;
+  const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
+  const isLeaderParent=(CURRENT_LEADER_ID && roleId===CURRENT_LEADER_ID);
+  const subLevel=roleLevel+(isLeaderParent?2:1); const personLevel=subLevel+1;
+
+  subrolesArr.forEach(sr=>{
+    mountBox(sr.id,sr.name,subLevel); addEdge(roleId,sr.id);
+    const hasGrandkids=!!getSubrolesArr(dataCtx,sr.id)?.length; const personText=(sr.person||"").trim();
+    if(personText){ mountBox(`${sr.id}_P`,personText,personLevel,{font:{italics:true}}); addEdge(sr.id,`${sr.id}_P`); openedPersons.add(`${sr.id}_P`); }
+    else if(!hasGrandkids){ mountBox(`${sr.id}_P`,"Nuevo perfil",personLevel,{font:{italics:true}}); addEdge(sr.id,`${sr.id}_P`); openedPersons.add(`${sr.id}_P`); }
+  });
+  openedSubroles.add(roleId);
+}
+
+function rewireUnderLeaderIfAny(rootId,roles,leaderIdFromMeta){
+  let leaderId=leaderIdFromMeta||null; if(!leaderId){ const cand=roles.find(r=>/^\s*l[ií]der\s*$/i.test(r.name)); leaderId=cand?.id||null; }
+  if(!leaderId || !nodes.get(leaderId)) return;
+  const base=getLevel(rootId)??0;
+  nodes.update({id:leaderId, level:base+1});
+  roles.forEach(r=>{ if(r.id===leaderId) return; try{edges.remove(`${rootId}-${r.id}`);}catch(_){ } addEdge(leaderId,r.id); nodes.update({id:r.id, level:base+2}); });
+}
+
+function refreshButtons(){
+  const a=document.getElementById("btnAntes"); const d=document.getElementById("btnDespues");
+  a.classList.toggle("active", MODE==="ANTES"); d.classList.toggle("active", MODE==="DESPUÉS");
+  document.body.classList.toggle("mode-antes",   MODE==="ANTES");
+  document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
+  a.style.setProperty("--btn-accent","var(--accent)"); d.style.setProperty("--btn-accent","var(--accent)");
+}
+
+function updateCountsUI(){}
+
+async function enrichCountsForOAP(roles){
+  if(currentKey!=="oap" || !roles) return;
+  const modeKey=(MODE==="ANTES")?"ANTES":"DESPUÉS";
+  for(const r of (roles||[])){
+    const baseLabel=stripTrailingCount(r.name);
+    const routeKey=(r.route||"").trim();
+    const manual=routeKey? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
+    if(typeof manual==="number"){ nodes.update({ id:r.id, label:`${baseLabel} (${manual} roles)` }); }
+    else { nodes.update({ id:r.id, label:baseLabel }); }
+  }
+  buildDottedArcsToTeams(roles);
+}
+
+function baseNetworkOptions(){ network.setOptions(baseOptions()); }
+
+function mountOAP(view="DESPUÉS"){
+  MODE=view; clearAll(); baseNetworkOptions(); refreshButtons();
+  const data=(view==="ANTES")?orgBefore:orgAfter;
+  const {title,person}=splitTitlePerson(data.label); JEFA_LABEL=title||JEFA_LABEL; if(person) JEFA_PERSON=person;
+  mountBox(data.id,JEFA_LABEL,0,{ color:{ background:"#fff", border:accent() }, borderWidth:2 }); nodes.update({id:data.id, x:0});
+  const hasStrategist=!!(STRATEGIST && STRATEGIST.label);
+  if(hasStrategist){ mountBox(STRATEGIST_ID,STRATEGIST.label,1); addEdge(data.id,STRATEGIST_ID); nodes.update({id:STRATEGIST_ID,x:0}); }
+  const levelTeams=hasStrategist?2:1;
+  (data.roles||[]).forEach(r=>{ mountBox(r.id,r.name,levelTeams); addEdge(data.id,r.id); });
+  updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
+}
+
+function addCountsToNodes(data,overrides){
+  if(!data || !data.subroles) return;
+  for(const parentId in data.subroles){
+    const node=nodes.get(parentId); if(!node) continue;
+    const base=stripTrailingCount(node.label||"");
+    const nOverride=overrides && overrides[base];
+    const n=(nOverride!=null)?nOverride:data.subroles[parentId].length;
+    nodes.update({ id:parentId, label:`${base} (${n} roles)` });
+  }
+}
+
+function mountTeam(view="DESPUÉS"){
+  MODE=view; baseNetworkOptions(); refreshButtons();
+  clearAll(); try{nodes.remove(STICKY_ID);}catch(_){}
+  try{ edges.get().forEach(e=>{ if(e.from===STICKY_ID || e.to===STICKY_ID) edges.remove(e.id); }); }catch(_){}
+  const data=(view==="ANTES")?orgBefore:orgAfter;
+  TEAM_ROOT_ID=`TEAM_${currentKey.toUpperCase()}`; mountBox(TEAM_ROOT_ID,cleanPhase(data.label),0);
+  (data.roles||[]).forEach(r=>{ mountBox(r.id,r.name,1); addEdge(TEAM_ROOT_ID,r.id); });
+  const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
+  rewireUnderLeaderIfAny(TEAM_ROOT_ID,data.roles,CURRENT_LEADER_ID);
+  if(CURRENT_LEADER_ID && nodes.get(CURRENT_LEADER_ID)){
+    nodes.update({ id:CURRENT_LEADER_ID, color:{background:getComputedStyle(document.body).getPropertyValue('--leader-bg').trim(), border:getComputedStyle(document.body).getPropertyValue('--leader-border').trim()}, font:{bold:true} });
+  }
+  const teamOverrides=(TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES")?"ANTES":"DESPUÉS"]) || null;
+  addCountsToNodes(data,teamOverrides);
+  updateCountsUI(); stabilizeAndFit(160);
+}
+
+async function loadTeam(key){
+  setStatus("Cargando…");
+  try{
+    const res = await fetch(`${DATA_DIR}/${key}.json?cb=${Date.now()}`); const data = await res.json(); const prefix=key.toUpperCase();
+    function mapRoles(block){ return (block.roles||[]).map(r=>({ id:`${prefix}_${r.id}`, name:r.name, person:r.person||"", planta:!!r.planta, route:r.route||"" })); }
+    function mapSubroles(block){ const out={}; if(block.subroles){ for(const roleId in block.subroles){ out[`${prefix}_${roleId}`]=block.subroles[roleId].map(sr=>({ id:`${prefix}_${sr.id}`, name:sr.name, person:sr.person||"", planta:!!sr.planta })); } } return out; }
+
+    LEADER_NODE_ID_BEFORE = data.meta?.leaderIdBefore ? `${prefix}_${data.meta.leaderIdBefore}` : null;
+    LEADER_NODE_ID_AFTER  = data.meta?.leaderIdAfter  ? `${prefix}_${data.meta.leaderIdAfter}`  : null;
+    if(data.meta?.leaderId){ const fb=`${prefix}_${data.meta.leaderId}`; if(!LEADER_NODE_ID_BEFORE) LEADER_NODE_ID_BEFORE=fb; if(!LEADER_NODE_ID_AFTER) LEADER_NODE_ID_AFTER=fb; }
+
+    STRATEGIST = data.meta?.strategist ? { label:(data.meta.strategist.label||"").trim(), person:(data.meta.strategist.person||"").trim() } : null;
+
+    orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`,  roles:mapRoles(data.before), subroles:mapSubroles(data.before) };
+    orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles:mapRoles(data.after),  subroles:mapSubroles(data.after) };
+
+    if(key==="oap"){ const {title,person}=splitTitlePerson(orgAfter.label); if(title) JEFA_LABEL=cleanPhase(title); if(person) JEFA_PERSON=person; }
+
+    document.getElementById("title").innerHTML = `Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year">${new Date().getFullYear()}</span>`;
+
+    currentKey=key; sel.value=key;
+    if(key==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS");
+    setStatus("Listo");
+
+    // refrescar resumen si está abierto
+    if(drawerOpen) { await ensureResumen(); renderResumen(); }
+  }catch(err){ console.error(err); setStatus("Error al cargar"); alert(`No pude cargar ${DATA_DIR}/${key}.json`); }
+}
+
+/* -------- Interacción grafo -------- */
+network.on("click",(p)=>{
+  if(!p.nodes.length) return;
+  const id=p.nodes[0];
+
+  if(currentKey==="oap"){
+    const data=(MODE==="ANTES")?orgBefore:orgAfter;
+
+    if(id===data.id){
+      const sid=`${data.id}_S`;
+      if(sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
+      if(expandedRoot.has(data.id)){
+        (data.roles||[]).forEach(r=>{ closeSubtree(r.id,data); removePerson(r.id); removeSidePerson(r.id); try{edges.remove(`${data.id}-${r.id}`);}catch(_){ } try{nodes.remove(r.id);}catch(_){ } });
+        if(nodes.get(STRATEGIST_ID)){ removePerson(STRATEGIST_ID); try{edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){ } try{nodes.remove(STRATEGIST_ID);}catch(_){ } }
+        clearDottedArcs(); expandedRoot.delete(data.id);
       }else{
-        closeDrawer();
+        if(STRATEGIST && STRATEGIST.label && !nodes.get(STRATEGIST_ID)){ mountBox(STRATEGIST_ID,STRATEGIST.label,1); addEdge(data.id,STRATEGIST_ID); nodes.update({id:STRATEGIST_ID,x:0}); }
+        const levelTeams=(STRATEGIST && STRATEGIST.label)?2:1;
+        (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id,r.name,levelTeams); addEdge(data.id,r.id); });
+        buildDottedArcsToTeams(data.roles); expandedRoot.add(data.id);
       }
-    });
-    document.getElementById('btnCloseDrawer').addEventListener('click', closeDrawer);
-    document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
+      stabilizeAndFit(120); return;
+    }
 
-    document.getElementById('chartViewTabs').addEventListener('click', ()=>{
-      currentChartView = 'tabs';
-      document.getElementById('chartViewTabs').classList.add('active');
-      document.getElementById('chartViewCompare').classList.remove('active');
-      document.getElementById('tabsModo').style.display = 'inline-flex';
-      renderDrawer();
-    });
-    document.getElementById('chartViewCompare').addEventListener('click', ()=>{
-      currentChartView = 'compare';
-      document.getElementById('chartViewCompare').classList.add('active');
-      document.getElementById('chartViewTabs').classList.remove('active');
-      document.getElementById('tabsModo').style.display = 'none';
-      renderDrawer();
-    });
+    if(id===STRATEGIST_ID){ togglePersonNode(STRATEGIST_ID,STRATEGIST?.person||"",2,false); nodes.update({id:STRATEGIST_ID,x:0}); stabilizeAndFit(120); return; }
 
-    document.querySelectorAll('#tabsModo button').forEach(b=>{
-      b.addEventListener('click', ()=>{
-        document.querySelectorAll('#tabsModo button').forEach(x=>x.classList.remove('active'));
-        b.classList.add('active');
-        activeChartTab = b.dataset.tab;
-        renderDrawer();
-      });
-    });
+    const role=(data.roles||[]).find(r=>r.id===id);
+    if(role && role.route){ loadTeam(role.route); return; }
+    if(role && !role.route){ togglePersonNode(role.id,role.person,3,!!role.planta); stabilizeAndFit(120); }
+    return;
+  }
 
-    document.getElementById('chkSubdiv').addEventListener('change', (e)=>{
-      includeSubdiv = e.target.checked;
-      renderDrawer();
-    });
+  // vista equipo
+  const data=(MODE==="ANTES")?orgBefore:orgAfter;
 
-    /* Cambio de equipo y modo */
-    sel.addEventListener("change", async e=>{
-      await loadTeam(e.target.value);
-      if (drawerOpen) renderDrawer();
-    });
-    document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
-    document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
+  if(id===TEAM_ROOT_ID){
+    if(expandedRoot.has(TEAM_ROOT_ID)){
+      (data.roles||[]).forEach(r=>{ closeSubtree(r.id,data); removePerson(r.id); removeSidePerson(r.id); try{edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){ } try{nodes.remove(r.id);}catch(_){ } });
+      expandedRoot.delete(TEAM_ROOT_ID);
+    }else{
+      (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id,r.name,1); addEdge(TEAM_ROOT_ID,r.id); });
+      const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
+      rewireUnderLeaderIfAny(TEAM_ROOT_ID,data.roles,CURRENT_LEADER_ID);
+      expandedRoot.add(TEAM_ROOT_ID);
+    }
+    stabilizeAndFit(120); return;
+  }
 
-    /* ===== Carga inicial ===== */
-    loadTeam("oap");
-  </script>
+  const role=(data.roles||[]).find(r=>r.id===id);
+  if(role){
+    const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
+    if(role.id===CURRENT_LEADER_ID){
+      const sid=`${role.id}_S`;
+      if(sidePersons.has(sid)){ removeSidePerson(role.id); }
+      else { placeSidePersonFor(role.id,(role.person||"Nuevo perfil"),SIDE_OFFSET); }
+      const arr=data.subroles?.[role.id]; if(arr && arr.length) toggleSubroles(role.id,arr,data);
+    }else{
+      togglePersonNode(role.id,role.person,3,!!role.planta);
+      const arr=data.subroles?.[role.id]; if(arr && arr.length) toggleSubroles(role.id,arr,data);
+    }
+    stabilizeAndFit(120); return;
+  }
+
+  const nested=getSubrolesArr(data,id);
+  if(nested && nested.length){ toggleSubroles(id,nested,data); stabilizeAndFit(120); return; }
+});
+
+/* ======== Drawer: Resumen ======== */
+let resumenData=null;
+let drawerOpen=false;
+let resumenMode='DESPUÉS'; // 'ANTES' | 'DESPUÉS' | 'COMPARAR'
+let includeSubs=true;
+
+async function ensureResumen(){
+  if(resumenData) return resumenData;
+  const res=await fetch(`${DATA_DIR}/resumen.json?cb=${Date.now()}`);
+  resumenData=await res.json();
+  return resumenData;
+}
+
+function setScopeTag(){ document.getElementById('scopeTag').textContent = TEAM_LABELS[currentKey] || currentKey.toUpperCase(); }
+
+function renderResumen(){
+  if(!resumenData) return;
+  setScopeTag();
+
+  const chart=document.getElementById('chart');
+  const legend=document.getElementById('legend');
+  legend.style.display = (resumenMode==='COMPARAR') ? 'flex' : 'none';
+
+  const keys = (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey];
+
+  // preparar filas
+  let rows=[];
+  keys.forEach(k=>{
+    const e=resumenData.equipos[k]; if(!e) return;
+    rows.push({ label:e.label||k, a:e.antes?.total||0, d:e.despues?.total||0, isGroup:true });
+    if(includeSubs && Array.isArray(e.subdivisiones)){
+      e.subdivisiones.forEach(s=> rows.push({ label:s.label, a:s.antes||0, d:s.despues||0, isGroup:false }));
+    }
+  });
+
+  // escala
+  const maxVal = Math.max(...rows.map(r => Math.max(r.a, r.d, 1)));
+
+  // html
+  let out='';
+  rows.forEach(r=>{
+    const cls = r.isGroup ? 'row' : 'row sub';
+    const aw = Math.round((r.a/maxVal)*100);
+    const dw = Math.round((r.d/maxVal)*100);
+
+    out += `<div class="${cls}">
+      <div class="label">${r.label}</div>
+      ${resumenMode==='COMPARAR'
+        ? `<div class="track compare">
+             <div class="fill before" style="width:${aw}%"><span>A ${r.a}</span></div>
+             <div class="fill after"  style="width:${dw}%"><span>D ${r.d}</span></div>
+           </div>`
+        : `<div class="track">
+             <div class="fill ${resumenMode==='ANTES'?'before':'after'}" style="width:${resumenMode==='ANTES'?aw:dw}%">
+               <span>${resumenMode==='ANTES'?'A':'D'} ${resumenMode==='ANTES'?r.a:r.d}</span>
+             </div>
+           </div>`
+      }
+    </div>`;
+  });
+
+  chart.innerHTML = out;
+}
+
+/* abrir/cerrar */
+const drawer = document.getElementById('drawer');
+document.getElementById('openSummary').addEventListener('click', async ()=>{
+  drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); drawerOpen=true;
+  await ensureResumen(); renderResumen();
+});
+document.getElementById('closeDrawer').addEventListener('click', ()=>{
+  drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); drawerOpen=false;
+});
+
+/* controles del drawer */
+document.getElementById('pillAntes').addEventListener('click', ()=>{ resumenMode='ANTES'; togglePills(); renderResumen(); });
+document.getElementById('pillDespues').addEventListener('click', ()=>{ resumenMode='DESPUÉS'; togglePills(); renderResumen(); });
+document.getElementById('pillComparar').addEventListener('click', ()=>{ resumenMode='COMPARAR'; togglePills(); renderResumen(); });
+document.getElementById('chkSubs').addEventListener('change', (e)=>{ includeSubs=e.target.checked; renderResumen(); });
+
+function togglePills(){
+  document.getElementById('pillAntes').classList.toggle('active', resumenMode==='ANTES');
+  document.getElementById('pillDespues').classList.toggle('active', resumenMode==='DESPUÉS');
+  document.getElementById('pillComparar').classList.toggle('active', resumenMode==='COMPARAR');
+}
+
+/* ======== cambios de equipo / modo ======== */
+sel.addEventListener("change", async e=>{ await loadTeam(e.target.value); if(drawerOpen){ await ensureResumen(); renderResumen(); } });
+document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); if(drawerOpen){ resumenMode='ANTES'; togglePills(); renderResumen(); } };
+document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); if(drawerOpen){ resumenMode='DESPUÉS'; togglePills(); renderResumen(); } };
+
+/* ===== carga inicial ===== */
+loadTeam("oap");
+</script>
 </body>
 </html>
-
-
-
 
 
