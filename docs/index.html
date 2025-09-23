@@ -18,14 +18,13 @@
 
       --node-bg:#ffffff;
       --node-border:#d3d6e4;
-      --leader-bg:#f4f1ff;       /* fondo tenue para líder */
+      --leader-bg:#f4f1ff;
       --leader-border:#7c3aed;
 
-      /* Resumen */
-      --summary-bg:#faf8ff;
-      --summary-accent:#7c3aed;
-      --summary-row:#f2efff;
+      /* Drawer */
+      --drawer-w: 520px;  /* ancho normal */
     }
+
     *{box-sizing:border-box}
     body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
 
@@ -63,32 +62,45 @@
     body.mode-antes  { --accent: var(--accent-antes); }
     body.mode-despues{ --accent: #7c3aed; }
 
-    /* ====== Panel de resumen ====== */
-    .summary-wrap{max-width:1200px; margin:16px auto 32px; padding:0 20px;}
-    .summary-header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px;}
-    .summary-toggle{appearance:none; padding:10px 14px; font-weight:700; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer;}
-    .summary-toggle[aria-expanded="true"]{border-color:var(--summary-accent); box-shadow:0 6px 18px rgba(124,58,237,.12)}
-    .summary-panel{display:none; border:1px solid var(--border); border-radius:16px; margin-top:12px; overflow:hidden; background:#fff;}
-    .summary-panel.open{display:block;}
-    .summary-toolbar{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; background:var(--summary-bg); border-bottom:1px solid var(--border);}
-    .summary-toolbar .left{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    .tag{font-size:.85rem; padding:4px 10px; border-radius:999px; border:1px solid var(--border); background:#fff;}
-    .toggle-view{display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden;}
-    .toggle-view button{padding:8px 12px; border:0; background:#fff; cursor:pointer; font-weight:600}
-    .toggle-view button.active{background:var(--summary-accent); color:#fff}
+    /* ============== Drawer de resumen (desplegable) ============== */
+    #drawerBackdrop{
+      position:fixed; inset:0; background:rgba(15,23,42,.25);
+      backdrop-filter:saturate(120%) blur(2px);
+      opacity:0; pointer-events:none; transition:.2s ease;
+      z-index:40;
+    }
+    #drawerBackdrop.open{opacity:1; pointer-events:auto;}
 
-    .tabs{display:flex; gap:6px;}
-    .tabs button{padding:6px 10px; border:1px solid var(--border); background:#fff; border-radius:8px; cursor:pointer; font-weight:600;}
-    .tabs button.active{background:#fff; color:var(--summary-accent); border-color:var(--summary-accent);}
+    .drawer{
+      position:fixed; top:0; right:calc(-1 * var(--drawer-w)); height:100vh;
+      width:var(--drawer-w);
+      background:#fff; border-left:1px solid var(--border);
+      box-shadow:-18px 0 42px rgba(0,0,0,.08);
+      display:flex; flex-direction:column;
+      transition:right .28s ease, width .28s ease;
+      z-index:41;
+    }
+    .drawer.open{ right:0; }
+    .drawer.wide{ width:720px; }  /* estado expandido */
 
-    .summary-table{width:100%; border-collapse:separate; border-spacing:0; font-size:.95rem;}
-    .summary-table th, .summary-table td{border-bottom:1px solid #e9e9f3; padding:10px 12px; text-align:center; white-space:nowrap;}
-    .summary-table thead th{position:sticky; top:0; background:#fff; z-index:1}
-    .summary-table .leftcell{text-align:left;}
-    .summary-table .group{background:var(--summary-row); font-weight:700;}
-    .summary-table .note{color:#6b7280; font-size:.85em; margin-left:4px}
-    .summary-foot{padding:10px 12px; color:#6b7280; font-size:.9rem; text-align:right}
-    .hr{height:1px; background:#eee; border:0; margin:0;}
+    .drawer header{padding:14px 14px 10px; border-bottom:1px solid var(--border); background:#faf8ff;}
+    .drawer header h3{margin:0 0 6px 0; font-size:1rem}
+    .drawer .tabs{display:flex; gap:8px; flex-wrap:wrap}
+    .drawer .tabs .seg{padding:6px 10px; border:1px solid var(--border); background:#fff; border-radius:999px; cursor:pointer; font-weight:600}
+    .drawer .tabs .seg.active{color:var(--accent); border-color:var(--accent); background:#fff}
+
+    .drawer .body{padding:12px; overflow:auto; height:100%}
+    .card{border:1px solid var(--border); border-radius:12px; background:#fff}
+    .card .card-h{padding:10px 12px; border-bottom:1px solid var(--border); font-weight:700}
+    .card .card-b{padding:12px}
+
+    .chart-box{padding:8px 10px}
+    .chart-note{color:#6b7280; font-size:.9rem; padding:8px 0 0 4px}
+
+    .table{width:100%; border-collapse:separate; border-spacing:0}
+    .table th,.table td{border-bottom:1px solid #eef0f6; padding:8px 10px; text-align:center}
+    .table th:first-child,.table td:first-child{text-align:left}
+    .table .group{background:#f4f1ff; font-weight:700}
   </style>
 </head>
 <body class="mode-despues">
@@ -107,6 +119,7 @@
           <button id="btnAntes" class="btn">Antes</button>
           <button id="btnDespues" class="btn active">Después</button>
         </div>
+        <button id="openDrawer" class="btn">Resumen</button>
         <span id="status">Listo</span>
       </div>
     </div>
@@ -115,35 +128,42 @@
     </div></div>
   </header>
 
-  <!-- ===== Panel Resumen (ahora arriba del network) ===== -->
-  <div class="summary-wrap">
-    <div class="summary-header">
-      <h3 style="margin:0">Resumen de personas por equipo</h3>
-      <button id="btnResumen" class="summary-toggle" aria-expanded="false" aria-controls="summaryPanel">Mostrar resumen</button>
-    </div>
+  <div id="network"></div>
 
-    <section id="summaryPanel" class="summary-panel" role="region" aria-labelledby="btnResumen">
-      <div class="summary-toolbar">
-        <div class="left">
-          <span class="tag" id="summaryScope">Ámbito: OAP General</span>
-          <div class="toggle-view" role="tablist" aria-label="Modo de visualización del resumen">
-            <button id="viewTabs"   class="active" aria-selected="true">Pestañas</button>
-            <button id="viewCompare" aria-selected="false">Comparativo</button>
+  <!-- ===== Drawer Summary ===== -->
+  <div id="drawerBackdrop"></div>
+  <aside id="drawer" class="drawer" aria-labelledby="drawerTitle" role="dialog" aria-modal="true">
+    <header>
+      <h3 id="drawerTitle">Resumen — OAP General</h3>
+      <div class="tabs" role="tablist" aria-label="Modo del resumen">
+        <button class="seg" data-tab="ANTES">Antes</button>
+        <button class="seg active" data-tab="DESPUÉS">Después</button>
+        <button class="seg" data-tab="COMPARE">Comparar</button>
+
+        <!-- ancho -->
+        <button id="toggleWidth" class="btn" style="margin-left:8px">Expandir</button>
+        <button id="closeDrawer" class="btn" style="margin-left:8px">Cerrar</button>
+      </div>
+    </header>
+    <div class="body">
+      <div class="card">
+        <div class="card-h">Equipos — barras</div>
+        <div class="card-b">
+          <div class="chart-box">
+            <canvas id="resumenChart"></canvas>
+            <div id="chartNote" class="chart-note"></div>
           </div>
         </div>
-        <div class="tabs" id="tabsZona">
-          <button data-tab="ANTES">Antes</button>
-          <button data-tab="DESPUÉS" class="active">Después</button>
-        </div>
       </div>
-      <div id="summaryTableWrap" style="overflow:auto; max-height:60vh;">
-        <!-- tabla se inyecta aquí -->
-      </div>
-      <div class="summary-foot" id="summaryFoot"></div>
-    </section>
-  </div>
 
-  <div id="network"></div>
+      <div style="height:10px"></div>
+
+      <div class="card">
+        <div class="card-h">Detalle por equipo / subdivisiones</div>
+        <div class="card-b" id="tableWrap"></div>
+      </div>
+    </div>
+  </aside>
 
   <script>
     document.getElementById("year").textContent = new Date().getFullYear();
@@ -166,7 +186,7 @@
       "DESPUÉS": { "4p": 8, "ti": 20, "gestion_conocimiento": 3, "mipg": 6, "administrativo": 6 }
     };
 
-    const TEAM_FIXED_COUNTS = { /* opcional */ };
+    const TEAM_FIXED_COUNTS = {};
 
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
@@ -225,7 +245,6 @@
     const openedSubroles = new Set();
     const sidePersons   = new Set();
 
-    /* IDs de las líneas punteadas estratega → equipos (solo OAP) */
     const dottedArcIds = new Set();
 
     function baseOptions(){
@@ -259,7 +278,6 @@
     const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#7c3aed';
     const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
 
-    /* Limpia "(n)" o "(n roles)" de etiquetas */
     function stripTrailingCount(s){
       return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim();
     }
@@ -301,7 +319,6 @@
       openedSubroles.delete(nodeId);
     }
 
-    /* ------ Layout helpers ------ */
     function applyVerticalByLevel(y0=0){
       const all = nodes.get();
       nodes.update(all.map(n =>
@@ -329,7 +346,6 @@
     function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
     function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
 
-    /* Etiquetas laterales (chip) */
     function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
@@ -354,9 +370,7 @@
       nodes.update({ id: sid, x: r.x + offset, y: r.y, level });
     }
     function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
-    function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
 
-    /* Dotted bridges estratega → equipos (solo OAP) */
     function clearDottedArcs(){
       dottedArcIds.forEach(id => { try{ edges.remove(id);}catch(_){} });
       dottedArcIds.clear();
@@ -386,12 +400,12 @@
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
 
-        /* OAP: mantener jefa/analista centradas */
         if (currentKey === 'oap'){
           if (nodes.get(orgAfter?.id || orgBefore?.id)) { nodes.update({ id:(MODE==="ANTES"?orgBefore.id:orgAfter.id), x: 0 }); }
           if (nodes.get(STRATEGIST_ID)) { nodes.update({ id: STRATEGIST_ID, x: 0 }); }
-          keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
-          if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, SIDE_OFFSET);
+          const rootId = (MODE==="ANTES") ? orgBefore.id : orgAfter.id;
+          keepSideAligned(rootId, 220);
+          if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, 220);
         }
 
         setTimeout(() => {
@@ -439,7 +453,6 @@
 
       const roleLevel = getLevel(roleId) ?? 3;
 
-      /* líder del modo actual */
       const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
       const isLeaderParent = (CURRENT_LEADER_ID && roleId === CURRENT_LEADER_ID);
 
@@ -465,7 +478,6 @@
       openedSubroles.add(roleId);
     }
 
-    /* 👉 Relativo al nivel del root (sirve en vistas por equipo) */
     function rewireUnderLeaderIfAny(rootId, roles, leaderIdFromMeta){
       let leaderId = leaderIdFromMeta || null;
       if(!leaderId){
@@ -474,7 +486,7 @@
       }
       if(!leaderId || !nodes.get(leaderId)) return;
 
-      const base = getLevel(rootId) ?? 0;   // nivel del root actual
+      const base = getLevel(rootId) ?? 0;
       nodes.update({ id: leaderId, level: base + 1 });
       roles.forEach(r=>{
         if(r.id === leaderId) return;
@@ -492,16 +504,17 @@
       document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
       a.style.setProperty("--btn-accent","var(--accent)"); d.style.setProperty("--btn-accent","var(--accent)");
 
-      /* sincroniza pestañas del resumen si está abierto y en modo tabs */
-      if (document.getElementById('summaryPanel').classList.contains('open') && currentResumenView === 'tabs') {
-        activeResumenTab = MODE;
-        renderResumen();
+      if (isDrawerOpen() && drawerMode!=='COMPARE'){
+        drawerMode = MODE; // sincroniza pestañas con modo
+        setActiveSeg(drawerMode);
+        renderDrawer();
+      } else if (isDrawerOpen()){
+        renderDrawer();
       }
     }
 
     function updateCountsUI(){}
 
-    /* ======= Usa conteos manuales por route en OAP y evita duplicados ======= */
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
       const modeKey = (MODE === "ANTES") ? "ANTES" : "DESPUÉS";
@@ -510,7 +523,6 @@
         const baseLabel = stripTrailingCount(r.name);
         const routeKey  = (r.route || "").trim();
         const manual    = routeKey ? OAP_MANUAL_COUNTS[modeKey]?.[routeKey] : undefined;
-
         if (typeof manual === "number"){
           nodes.update({ id: r.id, label: `${baseLabel} (${manual} roles)` });
         } else {
@@ -522,18 +534,15 @@
 
     function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
-    /* ===== OAP (Jefa + Analista + Equipos) ===== */
     function mountOAP(view="DESPUÉS"){
       MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
       const data = (view==="ANTES") ? orgBefore : orgAfter;
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
 
-      /* Nivel 0: Jefa centrada */
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
       nodes.update({ id:data.id, x: 0 });
 
-      /* Nivel 1: Analista (si existe) centrada bajo Jefa */
       const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
       if (hasStrategist){
         mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
@@ -541,7 +550,6 @@
         nodes.update({ id: STRATEGIST_ID, x: 0 });
       }
 
-      /* Nivel 2 (si hay analista) o 1 (si no) para equipos */
       const levelTeams = hasStrategist ? 2 : 1;
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
 
@@ -561,33 +569,23 @@
       }
     }
 
-    /* ===== Vista por equipo (sin Jefa) ===== */
     function mountTeam(view="DESPUÉS"){
       MODE = view; baseNetworkOptions(); refreshButtons();
 
-      /* limpia todo y, por si acaso, cualquier rastro de la jefa */
       clearAll();
       try{ nodes.remove(STICKY_ID); }catch(_){}
-      try{
-        edges.get().forEach(e=>{
-          if(e.from===STICKY_ID || e.to===STICKY_ID) edges.remove(e.id);
-        });
-      }catch(_){}
+      try{ edges.get().forEach(e=>{ if(e.from===STICKY_ID || e.to===STICKY_ID) edges.remove(e.id); }); }catch(_){}
 
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
-      // 👉 El equipo es la raíz (nivel 0)
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 0);
 
-      // Hijos del equipo (nivel 1)
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(TEAM_ROOT_ID, r.id); });
 
-      // Reorganizar bajo el líder correcto según el modo
       const CURRENT_LEADER_ID = (MODE === "ANTES") ? LEADER_NODE_ID_BEFORE : LEADER_NODE_ID_AFTER;
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, CURRENT_LEADER_ID);
 
-      /* Estilo especial para el líder */
       if (CURRENT_LEADER_ID && nodes.get(CURRENT_LEADER_ID)) {
         nodes.update({
           id: CURRENT_LEADER_ID,
@@ -604,8 +602,7 @@
       updateCountsUI();
       stabilizeAndFit(160);
 
-      /* refrescar resumen si está abierto (alcance cambia a equipo) */
-      if (document.getElementById('summaryPanel').classList.contains('open')) renderResumen();
+      if (isDrawerOpen()) renderDrawer();
     }
 
     async function loadTeam(key){
@@ -632,7 +629,6 @@
           return out;
         }
 
-        /* leer líderes por modo (con fallback a leaderId único) */
         LEADER_NODE_ID_BEFORE = data.meta?.leaderIdBefore ? `${prefix}_${data.meta.leaderIdBefore}` : null;
         LEADER_NODE_ID_AFTER  = data.meta?.leaderIdAfter  ? `${prefix}_${data.meta.leaderIdAfter}`  : null;
         if (data.meta?.leaderId) {
@@ -641,7 +637,6 @@
           if (!LEADER_NODE_ID_AFTER)  LEADER_NODE_ID_AFTER  = fallback;
         }
 
-        /* estratega desde meta (solo OAP la usa) */
         STRATEGIST = data.meta?.strategist
           ? { label: (data.meta.strategist.label||"").trim(), person: (data.meta.strategist.person||"").trim() }
           : null;
@@ -725,7 +720,6 @@
         return;
       }
 
-      /* Vista equipo (sin Jefa) */
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
       if(id===TEAM_ROOT_ID){
@@ -778,10 +772,9 @@
       }
     });
 
-    /* ======= Resumen (tabla) ======= */
+    /* ===================== Drawer (Resumen) ===================== */
     let resumenData = null;
-    let currentResumenView = 'tabs'; // 'tabs' | 'compare'
-    let activeResumenTab = 'DESPUÉS'; // ANTES | DESPUÉS
+    let drawerMode = 'DESPUÉS'; // 'ANTES' | 'DESPUÉS' | 'COMPARE'
 
     async function ensureResumen(){
       if (resumenData) return resumenData;
@@ -789,120 +782,165 @@
       resumenData = await res.json();
       return resumenData;
     }
+    function getEquipo(k){ return resumenData?.equipos?.[k]; }
+    function scopeKeys(){ return (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey]; }
 
-    function fmt(n){ return (n===null || n===undefined || Number.isNaN(n)) ? '—' : String(n); }
+    function isDrawerOpen(){ return document.getElementById('drawer').classList.contains('open'); }
+    function openDrawer(){
+      document.getElementById('drawer').classList.add('open');
+      document.getElementById('drawerBackdrop').classList.add('open');
+      renderDrawer();
+    }
+    function closeDrawer(){
+      document.getElementById('drawer').classList.remove('open');
+      document.getElementById('drawerBackdrop').classList.remove('open');
+    }
+    function setActiveSeg(mode){
+      document.querySelectorAll('#drawer .tabs .seg').forEach(b=>{
+        b.classList.toggle('active', b.dataset.tab === mode);
+      });
+    }
 
-    function renderResumen(){
-      const panel = document.getElementById('summaryPanel');
-      if (!panel.classList.contains('open')) return;
+    /* ===== Canvas responsive ===== */
+    function setCanvasSize() {
+      const box = document.querySelector('#drawer .chart-box');
+      const c   = document.getElementById('resumenChart');
+      if (!box || !c) return;
 
-      const scopeTag = document.getElementById('summaryScope');
-      scopeTag.textContent = `Ámbito: ${TEAM_LABELS[currentKey]||currentKey.toUpperCase()}`;
+      const dpr = window.devicePixelRatio || 1;
+      const inner = box.clientWidth - 20;
+      const rows = scopeKeys().length;
+      const hCss = Math.max(260, 38 * rows + 60);
 
-      const wrap = document.getElementById('summaryTableWrap');
-      const foot = document.getElementById('summaryFoot');
-      const data = resumenData?.equipos || {};
+      c.style.width  = inner + 'px';
+      c.style.height = hCss + 'px';
+      c.width  = Math.floor(inner * dpr);
+      c.height = Math.floor(hCss * dpr);
+    }
 
-      const keys = (currentKey==='oap') ? ['4p','ti','gestion_conocimiento','mipg','administrativo'] : [currentKey];
+    function drawChart(){
+      const canvas = document.getElementById('resumenChart');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
 
-      function rowGroup(label, antes, despues, notaAntes, notaDespues){
-        return `<tr class="group">
-          <td class="leftcell">${label}</td>
-          ${currentResumenView==='compare'
-            ? `<td>${fmt(antes)}${notaAntes?`<span class="note">(${notaAntes})</span>`:''}</td>
-               <td>${fmt(despues)}${notaDespues?`<span class="note">(${notaDespues})</span>`:''}</td>`
-            : `<td>${fmt(activeResumenTab==='ANTES'?antes:despues)}${
-                (activeResumenTab==='ANTES'?notaAntes:notaDespues)?`<span class="note">(${activeResumenTab==='ANTES'?notaAntes:notaDespues})</span>`:''
-              }</td>`
-          }
-        </tr>`;
-      }
-      function rowSub(label, antes, despues){
-        return `<tr>
-          <td class="leftcell">${label}</td>
-          ${currentResumenView==='compare'
-            ? `<td>${fmt(antes)}</td><td>${fmt(despues)}</td>`
-            : `<td>${fmt(activeResumenTab==='ANTES'?antes:despues)}</td>`
-          }
-        </tr>`;
-      }
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
 
-      let html = `<table class="summary-table"><thead><tr>
-          <th class="leftcell">Equipos</th>
-          ${currentResumenView==='compare'
-            ? `<th>Antes</th><th>Después</th>`
-            : `<th>${activeResumenTab[0]+activeResumenTab.slice(1).toLowerCase()}</th>`}
-        </tr></thead><tbody>`;
+      const keys = scopeKeys();
+      const labels = keys.map(k=> getEquipo(k)?.label || (TEAM_LABELS[k]||k.toUpperCase()));
+      const A = keys.map(k=> getEquipo(k)?.antes?.total || 0);
+      const D = keys.map(k=> getEquipo(k)?.despues?.total || 0);
+      const maxv = Math.max(1, ...A, ...D);
 
-      let totalAntes = 0, totalDespues = 0;
+      const box = document.querySelector('#drawer .chart-box');
+      const widthCss = (box?.clientWidth || 380) - 20;
+      const left = 140, right = 16, top = 20, rowH = 34, gap = 10, barH = 10;
+
+      ctx.fillStyle='#111827';
+      ctx.font='12px system-ui';
+
+      labels.forEach((lab, i)=>{
+        const y = top + i*(rowH+gap) + 8;
+
+        ctx.textAlign='right';
+        ctx.fillText(lab, left-10, y+barH);
+
+        const drawBar = (val, yoff, isA)=>{
+          const usable = widthCss - left - right;
+          const w = usable * (val / maxv);
+          ctx.fillStyle = isA ? '#a78bfa' : '#7c3aed';
+          ctx.fillRect(left, y+yoff, w, barH);
+          ctx.fillStyle='#111827';
+          ctx.textAlign='left';
+          ctx.fillText(val, left + w + 6, y+yoff+barH);
+        };
+
+        if (drawerMode==='COMPARE'){ drawBar(A[i], 0, true); drawBar(D[i], barH+4, false); }
+        else if (drawerMode==='ANTES'){ drawBar(A[i], 0, true); }
+        else { drawBar(D[i], 0, false); }
+      });
+
+      const note = document.getElementById('chartNote');
+      note.textContent = (drawerMode==='COMPARE')
+        ? 'Comparativo por equipo (Antes vs Después)'
+        : `Vista ${drawerMode.toLowerCase()}`;
+    }
+
+    function renderTable(){
+      const keys = scopeKeys();
+      const wrap = document.getElementById('tableWrap');
+      const c = (drawerMode==='COMPARE') ? 3 : 2;
+      let html = `<table class="table"><thead><tr>
+        <th>Equipos / subdivisiones</th>
+        ${drawerMode==='COMPARE' ? '<th>Antes</th><th>Después</th>' : `<th>${drawerMode[0]+drawerMode.slice(1).toLowerCase()}</th>`}
+      </tr></thead><tbody>`;
 
       keys.forEach(k=>{
-        const e = data[k];
-        if(!e) return;
+        const e = getEquipo(k); if(!e) return;
         const notaA = (e.antes && e.antes.nota) ? e.antes.nota.replace(/[()]/g,'') : '';
         const notaD = (e.despues && e.despues.nota) ? e.despues.nota.replace(/[()]/g,'') : '';
-        html += rowGroup(e.label || k.toUpperCase(), e.antes?.total, e.despues?.total, notaA, notaD);
+        html += `<tr class="group"><td>${e.label||k.toUpperCase()}</td>${
+          drawerMode==='COMPARE'
+          ? `<td>${e.antes?.total ?? '—'}${notaA?` <small>(${notaA})</small>`:''}</td>
+             <td>${e.despues?.total ?? '—'}${notaD?` <small>(${notaD})</small>`:''}</td>`
+          : `<td>${(drawerMode==='ANTES'?e.antes?.total:e.despues?.total) ?? '—'}${
+              (drawerMode==='ANTES'?notaA:notaD)?` <small>(${drawerMode==='ANTES'?notaA:notaD})</small>`:''
+            }</td>`
+        }</tr>`;
 
-        if (Array.isArray(e.subdivisiones)){
-          e.subdivisiones.forEach(s=>{
-            html += rowSub(s.label, s.antes, s.despues);
-          });
-        }
-        totalAntes  += Number(e.antes?.total || 0);
-        totalDespues+= Number(e.despues?.total || 0);
-        html += `<tr><td colspan="${currentResumenView==='compare'?3:2}"><div class="hr"></div></td></tr>`;
+        (e.subdivisiones||[]).forEach(s=>{
+          html += `<tr><td>${s.label}</td>${
+            drawerMode==='COMPARE'
+            ? `<td>${s.antes ?? '—'}</td><td>${s.despues ?? '—'}</td>`
+            : `<td>${(drawerMode==='ANTES'?s.antes:s.despues) ?? '—'}</td>`
+          }</tr>`;
+        });
       });
 
       html += `</tbody></table>`;
       wrap.innerHTML = html;
-
-      foot.textContent = (currentResumenView==='compare')
-        ? `Total — Antes: ${totalAntes} · Después: ${totalDespues}`
-        : (activeResumenTab==='ANTES' ? `Total — ${totalAntes}` : `Total — ${totalDespues}`);
     }
 
-    /* UI resumen: handlers */
-    document.getElementById('btnResumen').addEventListener('click', async ()=>{
-      const panel = document.getElementById('summaryPanel');
-      const btn = document.getElementById('btnResumen');
-      const open = panel.classList.toggle('open');
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      btn.textContent = open ? 'Ocultar resumen' : 'Mostrar resumen';
-      if (open){
-        await ensureResumen();
-        renderResumen();
-      }
-    });
+    async function renderDrawer(){
+      await ensureResumen();
+      document.getElementById('drawerTitle').textContent =
+        `Resumen — ${TEAM_LABELS[currentKey]||currentKey.toUpperCase()}`;
 
-    document.getElementById('viewTabs').addEventListener('click', ()=>{
-      currentResumenView = 'tabs';
-      document.getElementById('viewTabs').classList.add('active');
-      document.getElementById('viewCompare').classList.remove('active');
-      document.getElementById('tabsZona').style.display = 'flex';
-      renderResumen();
-    });
-    document.getElementById('viewCompare').addEventListener('click', ()=>{
-      currentResumenView = 'compare';
-      document.getElementById('viewCompare').classList.add('active');
-      document.getElementById('viewTabs').classList.remove('active');
-      document.getElementById('tabsZona').style.display = 'none';
-      renderResumen();
-    });
+      setCanvasSize();
+      drawChart();
+      renderTable();
+    }
 
-    /* tabs ANTES/DESPUÉS dentro del panel */
-    document.querySelectorAll('#tabsZona button').forEach(b=>{
+    function toggleDrawerWidth(){
+      const drawer = document.getElementById('drawer');
+      drawer.classList.toggle('wide');
+      setCanvasSize();
+      drawChart();
+    }
+
+    /* Handlers drawer */
+    document.getElementById('openDrawer').onclick = openDrawer;
+    document.getElementById('closeDrawer').onclick = closeDrawer;
+    document.getElementById('drawerBackdrop').onclick = closeDrawer;
+    document.getElementById('toggleWidth').onclick = toggleDrawerWidth;
+
+    document.querySelectorAll('#drawer .tabs .seg').forEach(b=>{
       b.addEventListener('click', ()=>{
-        document.querySelectorAll('#tabsZona button').forEach(x=>x.classList.remove('active'));
-        b.classList.add('active');
-        activeResumenTab = b.dataset.tab;
-        renderResumen();
+        drawerMode = b.dataset.tab;
+        setActiveSeg(drawerMode);
+        renderDrawer();
       });
+    });
+
+    window.addEventListener('resize', () => {
+      if (isDrawerOpen()) { setCanvasSize(); drawChart(); }
     });
 
     /* Cambio de equipo y modo */
     sel.addEventListener("change", async e=>{
       await loadTeam(e.target.value);
-      if (document.getElementById('summaryPanel').classList.contains('open')) renderResumen();
+      if (isDrawerOpen()) renderDrawer();
     });
     document.getElementById("btnAntes").onclick   = ()=>{ if(currentKey==="oap") mountOAP("ANTES"); else mountTeam("ANTES"); };
     document.getElementById("btnDespues").onclick = ()=>{ if(currentKey==="oap") mountOAP("DESPUÉS"); else mountTeam("DESPUÉS"); };
@@ -912,6 +950,7 @@
   </script>
 </body>
 </html>
+
 
 
 
