@@ -1,12 +1,12 @@
 {
   "meta": {
-    "equipo": "Proyectos, Procesos, Planes y Programas",
-    "titulo": "Planes, Políticas, Proyectos y Presupuesto",
+    "equipo": "Políticas, Proyectos, Planes y Presupuestos",
+    "titulo": "Políticas, Proyectos, Planes y Presupuestos",
     "leaderId": "A_LIDER"
   },
 
   "before": {
-    "label": "Proyectos, Procesos, Planes y Programas (6 roles) – ANTES",
+    "label": "Políticas, Proyectos, Planes y Presupuestos (6 roles) – ANTES",
     "roles": [
       { "id": "B_LIDER",    "name": "Líder",               "person": "Nelly García" },
       { "id": "B_REF1",     "name": "Referente",           "person": "Yuly Sánchez" },
@@ -18,7 +18,7 @@
   },
 
   "after": {
-    "label": "Proyectos, Procesos, Planes y Programas – DESPUÉS",
+    "label": "Políticas, Proyectos, Planes y Presupuestos – DESPUÉS",
     "roles": [
       { "id": "A_LIDER",   "name": "Líder",                  "person": "" },
       { "id": "A_PROYINV", "name": "Proyectos de Inversión", "person": "" },
