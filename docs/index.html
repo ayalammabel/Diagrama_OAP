@@ -15,8 +15,6 @@
       --border:#e8eaf1;
       --bg:#ffffff;
       --appbar-bg: linear-gradient(180deg,#f6f4ff 0%, #f1effe 100%);
-      --chip-bg:#f4f3ff;
-      --chip-bd:#dcd7fe;
     }
     *{box-sizing:border-box}
     body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
@@ -25,12 +23,13 @@
     header{position:sticky; top:0; z-index:10; background:var(--appbar-bg); border-bottom:1px solid var(--border)}
     .appbar{
       max-width:1200px; margin:0 auto; padding:18px 20px;
-      display:flex; align-items:center; justify-content:space-between; gap:16px;
+      display:flex; align-items:center; gap:24px; /* menos separación para acercar controles a la izquierda */
     }
     .appbar__brand{min-width:0}
     .appbar h1{margin:0; font-size:1.28rem; line-height:1.25; font-weight:800; letter-spacing:.2px}
     .appbar .subtitle{margin:6px 0 0; color:var(--muted); font-size:.95rem}
-    .appbar__controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+    /* Contenedor de controles alineado tras el título, no pegado a la derecha */
+    .appbar__controls{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
 
     label{font-size:.92rem; color:var(--muted)}
     select{
@@ -38,7 +37,8 @@
       box-shadow:0 1px 0 rgba(0,0,0,.02);
     }
 
-    /* Botones */
+    /* Botones como grupo */
+    .btn-group{display:flex; gap:8px; white-space:nowrap}
     .btn{
       --btn-accent: var(--accent);
       appearance:none; border:none; outline:none; cursor:pointer;
@@ -60,7 +60,7 @@
     /* Canvas */
     #network{height:82vh}
 
-    /* Ocultar “Listo” visual */
+    /* Ocultar “Listo” (se mantiene funcional para estados) */
     #status{ display:none; }
 
     /* Modos para cambiar acento */
@@ -77,12 +77,17 @@
         <p class="subtitle">Presentación institucional</p>
       </div>
 
+      <!-- Controles a la izquierda del header, botones juntos -->
       <div class="appbar__controls">
         <label>Equipo:
           <select id="teamSelect"></select>
         </label>
-        <button id="btnAntes" class="btn">Antes</button>
-        <button id="btnDespues" class="btn active">Después</button>
+
+        <div class="btn-group">
+          <button id="btnAntes" class="btn">Antes</button>
+          <button id="btnDespues" class="btn active">Después</button>
+        </div>
+
         <span id="status">Listo</span>
       </div>
     </div>
@@ -342,7 +347,7 @@
       });
     }
 
-    /* Actualiza estilos de botones/tema */
+    /* Estilos de botones/tema */
     function refreshButtons(){
       const a = document.getElementById("btnAntes");
       const d = document.getElementById("btnDespues");
@@ -350,13 +355,12 @@
       d.classList.toggle("active", MODE==="DESPUÉS");
       document.body.classList.toggle("mode-antes",   MODE==="ANTES");
       document.body.classList.toggle("mode-despues", MODE==="DESPUÉS");
-      /* fuerza color activo según modo */
       a.style.setProperty("--btn-accent","var(--accent)");
       d.style.setProperty("--btn-accent","var(--accent)");
     }
 
-    /* Ya no ponemos contadores en los botones */
-    function updateCountsUI(){ /* intencionalmente vacío (sin contadores) */ }
+    /* Sin contadores en botones */
+    function updateCountsUI(){}
 
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
@@ -448,7 +452,6 @@
           if(person) JEFA_PERSON = person;
         }
 
-        const nice = TEAM_LABELS[key] || (data.meta?.equipo || key);
         document.getElementById("title").innerHTML =
           `Organigrama del equipo de la Oficina Asesora de Planeación (OAP) – <span id="year">${new Date().getFullYear()}</span>`;
 
