@@ -7,8 +7,8 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root{
-      --accent:#8b5cf6;          /* púrpura principal (Después) */
-      --accent-antes:#6b21a8;    /* púrpura profundo (Antes) */
+      --accent:#8b5cf6;
+      --accent-antes:#6b21a8;
       --ink:#0f172a;
       --muted:#5b6474;
       --border:#e8eaf1;
@@ -31,7 +31,7 @@
     .btn-group{display:flex; gap:8px; white-space:nowrap}
     .btn{--btn-accent: var(--accent); appearance:none; border:none; outline:none; cursor:pointer;
       padding:9px 14px; border-radius:999px; font-weight:600; font-size:.95rem;
-      background:#fff; color:var(--ink); border:1px solid #dadcee; box-shadow:0 1px 0 rgba(0,0,0,.02); transition:.18s ease;}
+      background:#fff; color:#111; border:1px solid #dadcee; box-shadow:0 1px 0 rgba(0,0,0,.02); transition:.18s ease;}
     .btn:hover{transform:translateY(-1px)}
     .btn.active{background:var(--btn-accent); color:#fff; border-color:var(--btn-accent); box-shadow:0 6px 16px rgba(139,92,246,.25);}
 
@@ -64,11 +64,9 @@
         <span id="status">Listo</span>
       </div>
     </div>
-    <div class="hintwrap">
-      <div class="hint">
-        Usa la <b>raíz</b> para desplegar niveles y un <b>rol</b> para ver personas y subroles. En <b>OAP</b>, al hacer clic en un equipo se abre su subdiagrama.
-      </div>
-    </div>
+    <div class="hintwrap"><div class="hint">
+      Usa la <b>raíz</b> para desplegar niveles y un <b>rol</b> para ver personas y subroles. En <b>OAP</b>, al hacer clic en un equipo se abre su subdiagrama.
+    </div></div>
   </header>
 
   <div id="network"></div>
@@ -107,9 +105,8 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    // NUEVO: analista estratégica
-    const STRATEGIST_ID = "OAP_STRATEGIST";
-    let STRATEGIST = null; // {label, person} leído del JSON
+    const STRATEGIST_ID = "OAP_STRATEGIST"; // Analista estratégica
+    let STRATEGIST = null;                  // {label, person}
 
     const SIDE_OFFSET = 220;
     const JEFA_SIDE_OFFSET = 220;
@@ -177,6 +174,34 @@
       openedSubroles.delete(nodeId);
     }
 
+    /* ---------- NUEVO: fijar vertical por nivel ---------- */
+    function applyVerticalByLevel(y0=0){
+      const all = nodes.get();
+      nodes.update(all.map(n =>
+        (typeof n.level==='number')
+          ? { id:n.id, y: y0 + n.level*LEVEL_Y_GAP }
+          : { id:n.id }
+      ));
+    }
+    function childrenOf(parentId){
+      return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
+    }
+    function spreadChildren(parentId, gap = MIN_GAP){
+      const kids = childrenOf(parentId); if(kids.length < 2) return;
+      const p = network.getPositions([parentId])[parentId] || {x:0,y:0};
+      const posKids = network.getPositions(kids);
+      kids.sort((a,b) => (posKids[a]?.x || 0) - (posKids[b]?.x || 0));
+      const total = (kids.length - 1) * gap; let startX = p.x - total / 2;
+      nodes.update(kids.map((id, i) => ({ id, x: Math.round(startX + i * gap) })));
+    }
+    function applyHorizontalSpacingAll(gap=MIN_GAP){
+      const parents = Array.from(new Set(edges.get().map(e => e.from)));
+      parents.sort((a,b) => ((nodes.get(a)?.level||0) - (nodes.get(b)?.level||0)));
+      parents.forEach(pid => spreadChildren(pid, gap));
+    }
+    function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
+    function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
+
     function placeSidePersonFor(rootId, label, offset = SIDE_OFFSET){
       if (!label || !label.trim()) return;
       const sid = `${rootId}_S`;
@@ -200,28 +225,11 @@
     function placeSidePersonForJefa(rootId){ placeSidePersonFor(rootId, JEFA_PERSON, JEFA_SIDE_OFFSET); }
     function keepJefaPersonSideAlignedFor(rootId){ keepSideAligned(rootId, JEFA_SIDE_OFFSET); }
 
-    function childrenOf(parentId){
-      return edges.get({ filter: e => e.from === parentId }).map(e => e.to).filter(id => !!nodes.get(id));
-    }
-    function spreadChildren(parentId, gap = MIN_GAP){
-      const kids = childrenOf(parentId); if(kids.length < 2) return;
-      const p = network.getPositions([parentId])[parentId] || {x:0,y:0};
-      const posKids = network.getPositions(kids);
-      kids.sort((a,b) => (posKids[a]?.x || 0) - (posKids[b]?.x || 0));
-      const total = (kids.length - 1) * gap; let startX = p.x - total / 2;
-      nodes.update(kids.map((id, i) => ({ id, x: Math.round(startX + i * gap) })));
-    }
-    function applyHorizontalSpacingAll(gap=MIN_GAP){
-      const parents = Array.from(new Set(edges.get().map(e => e.from)));
-      parents.sort((a,b) => ((nodes.get(a)?.level||0) - (nodes.get(b)?.level||0)));
-      parents.forEach(pid => spreadChildren(pid, gap));
-    }
-    function fixAllPositions(fix=true){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:fix, y:fix } }))); }
-    function unfixAllPositions(){ nodes.update(nodes.get().map(n => ({ id:n.id, fixed:{ x:false, y:false } }))); }
-
     function stabilizeAndFit(anim=200){
       setStatus("Ajustando layout…");
       unfixAllPositions();
+      /* clave: forzamos Y por nivel antes de espaciar */
+      applyVerticalByLevel(0);
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
         if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
@@ -301,7 +309,6 @@
         leaderId = cand?.id || null;
       }
       if(!leaderId || !nodes.get(leaderId)) return;
-
       nodes.update({ id: leaderId, level: 2 });
       roles.forEach(r=>{
         if(r.id === leaderId) return;
@@ -327,12 +334,10 @@
     async function enrichCountsForOAP(roles){
       if(currentKey !== "oap" || !roles) return;
       const MODE_KEY = (MODE === "ANTES") ? "BEFORE" : "AFTER";
-
       for(const r of roles){
         const base = String(r.name).replace(/\s*\(\d+\s*roles?\)\s*$/,'').replace(/\s*\(\d+\)\s*$/,'').trim();
         const fixed = OAP_FIXED_COUNTS[MODE_KEY]?.[base];
         if (fixed != null){ nodes.update({ id:r.id, label:`${base} (${fixed} roles)` }); continue; }
-
         if(!r.route) continue;
         try{
           const res = await fetch(`${DATA_DIR}/${r.route}.json?cb=${Date.now()}`);
@@ -346,32 +351,27 @@
 
     function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
-    // ====== OAP (Jefa + Analista estratégica + Equipos) ======
+    /* ===== OAP (Jefa + Analista + Equipos) ===== */
     function mountOAP(view="DESPUÉS"){
       MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
-
       const data = (view==="ANTES") ? orgBefore : orgAfter;
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
 
-      // Jefa (nivel 0)
+      // Nivel 0: Jefa
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
 
-      // Analista estratégica (nivel 1) si existe en JSON
+      // Nivel 1: Analista estratégica (si existe)
       const hasStrategist = !!(STRATEGIST && STRATEGIST.label);
-      if (hasStrategist){
-        mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
-        addEdge(data.id, STRATEGIST_ID);
-      }
+      if (hasStrategist){ mountBox(STRATEGIST_ID, STRATEGIST.label, 1); addEdge(data.id, STRATEGIST_ID); }
 
-      // Equipos: si hay analista, bajan a nivel 2; si no, nivel 1
+      // Nivel 2: Equipos (si hay analista), si no -> nivel 1
       const levelTeams = hasStrategist ? 2 : 1;
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, levelTeams); addEdge(data.id, r.id); });
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
     }
 
-    // ---- Subdiagramas por equipo ----
     function addCountsToNodes(data, overrides){
       if(!data || !data.subroles) return;
       for(const parentId in data.subroles){
@@ -385,11 +385,9 @@
 
     function mountTeam(view="DESPUÉS"){
       MODE = view; clearAll(); baseNetworkOptions(); refreshButtons();
-
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
-
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 1); addEdge(STICKY_ID, TEAM_ROOT_ID);
 
@@ -428,8 +426,10 @@
 
         LEADER_NODE_ID = data.meta?.leaderId ? `${prefix}_${data.meta.leaderId}` : null;
 
-        // NUEVO: leer estratega desde meta
-        STRATEGIST = data.meta?.strategist ? { label: (data.meta.strategist.label||"").trim(), person: (data.meta.strategist.person||"").trim() } : null;
+        // Leer estratega desde meta
+        STRATEGIST = data.meta?.strategist
+          ? { label: (data.meta.strategist.label||"").trim(), person: (data.meta.strategist.person||"").trim() }
+          : null;
 
         orgBefore = { id:`ROOT_BEFORE_${prefix}`, label:data.before.label || `${data.meta?.equipo||key} – ANTES`, roles: mapRoles(data.before), subroles: mapSubroles(data.before) };
         orgAfter  = { id:`ROOT_AFTER_${prefix}`,  label:data.after.label  || `${data.meta?.equipo||key} – DESPUÉS`, roles: mapRoles(data.after),  subroles: mapSubroles(data.after) };
@@ -453,7 +453,6 @@
       }
     }
 
-    // ========== Interacción ==========
     network.on("click", (p)=>{
       if(!p.nodes.length) return;
       const id = p.nodes[0];
@@ -461,20 +460,17 @@
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-        // Jefa OAP: alterna persona lateral + expand/colapsa
         if(id===data.id){
           const sid = `${data.id}_S`;
           if (sidePersons.has(sid)){ removeSidePerson(data.id); } else { placeSidePersonForJefa(data.id); }
 
           if(expandedRoot.has(data.id)){
-            // Cerrar equipos
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
               removePerson(r.id); removeSidePerson(r.id);
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
-            // Cerrar estratega si existe
             if (nodes.get(STRATEGIST_ID)){
               removePerson(STRATEGIST_ID);
               try{ edges.remove(`${data.id}-${STRATEGIST_ID}`);}catch(_){}
@@ -482,14 +478,12 @@
             }
             expandedRoot.delete(data.id);
           }else{
-            // Abrir estratega (nivel 1) si hay
             if (STRATEGIST && STRATEGIST.label){
               if(!nodes.get(STRATEGIST_ID)){
                 mountBox(STRATEGIST_ID, STRATEGIST.label, 1);
                 addEdge(data.id, STRATEGIST_ID);
               }
             }
-            // Abrir equipos (nivel 2 si hay estratega)
             const levelTeams = (STRATEGIST && STRATEGIST.label) ? 2 : 1;
             (data.roles||[]).forEach(r=>{
               if(!nodes.get(r.id)) mountBox(r.id, r.name, levelTeams);
@@ -501,7 +495,6 @@
           return;
         }
 
-        // Clic en estratega: mostrar persona debajo si existe
         if (id === STRATEGIST_ID){
           togglePersonNode(STRATEGIST_ID, STRATEGIST?.person || "", 2, false);
           stabilizeAndFit(120);
@@ -514,7 +507,6 @@
         return;
       }
 
-      // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
       if(id===STICKY_ID){
@@ -576,5 +568,4 @@
   </script>
 </body>
 </html>
-
 
