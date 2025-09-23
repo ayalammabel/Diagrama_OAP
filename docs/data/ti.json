@@ -54,6 +54,7 @@
     ],
     "subroles": {
       "A_INFRA": [
+        { "id": "SR_INF_LIDER", "name": "Líder", "person": "Miguel Bernal" },
         { "id": "SR_INF_JE", "name": "Apoyo Infraestructura", "person": "Jorge Escalante" },
         { "id": "SR_INF_OC", "name": "Apoyo Infraestructura", "person": "Oscar Carvajal" },
         { "id": "SR_INF_FP", "name": "Apoyo Infraestructura", "person": "Fabián Puentes" },
@@ -92,6 +93,9 @@
       ],
       "DEV_FURAG": [
         { "id": "SR_FUR_DEV", "name": "Desarrollador",   "person": "" }
+      ],
+      "DEV_WEB_MASTER": [
+        { "id": "SR_WEB_MASTER", "name": "Web Master",   "person": "Miguel Acuña" }
       ]
     }
   }
