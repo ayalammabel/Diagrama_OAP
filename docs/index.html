@@ -48,7 +48,7 @@
     const TEAMS = ["oap","4p","gestion_conocimiento","administrativo","ti","mipg"];
     const TEAM_LABELS = { oap:"OAP General","4p":"4P",gestion_conocimiento:"Gestión del Conocimiento",administrativo:"Administrativo",ti:"TI",mipg:"MIPG" };
 
-    // Niveles: 0 Jefa | 1 Equipo | 2 Líder | 3 Otros roles | 4 Subroles | 5 Personas de subroles
+    // Niveles: 0 Jefa | 1 Equipo | 2 Líder | 3 Personas asignadas / otros roles | 4 Subroles | 5 Personas de subroles
     const LEVEL_Y_GAP = 130;
     const MIN_GAP = 300;
 
@@ -62,9 +62,6 @@
     let TEAM_ROOT_ID = null;
     let LEADER_NODE_ID = null;
 
-    // Persona de la Jefa al costado (cuando se pide)
-    const JEFA_SIDE_OFFSET = 220; // px a la derecha del nodo de Jefa
-
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
     const container = document.getElementById("network");
@@ -74,9 +71,13 @@
     function baseOptions(){
       return {
         layout: { hierarchical: {
-          enabled:true, direction:"UD",
-          levelSeparation: LEVEL_Y_GAP, nodeSpacing: MIN_GAP,
-          parentCentralization:true, blockShifting:false, edgeMinimization:true,
+          enabled:true,
+          direction:"UD",
+          levelSeparation: LEVEL_Y_GAP,
+          nodeSpacing: MIN_GAP,
+          parentCentralization:true,
+          blockShifting:false,
+          edgeMinimization:true,
           sortMethod:"directed"
         }},
         physics:false,
@@ -114,7 +115,7 @@
     function addEdge(from, to){ const id = `${from}-${to}`; if(!edges.get(id)) edges.add({ id, from, to }); }
     function getLevel(nodeId){ const n = nodes.get(nodeId); return (n && typeof n.level === 'number') ? n.level : null; }
 
-    // subroles de cualquier nodo (roles o subroles)
+    // subroles de cualquier nodo
     function getSubrolesArr(data, nodeId){
       return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null;
     }
@@ -138,27 +139,6 @@
         openedSubroles.delete(ch.id);
       });
       openedSubroles.delete(nodeId);
-    }
-
-    /****************** PERSONA DE LA JEFA (AL COSTADO) ******************/
-    function placeSidePersonFor(rootId){
-      if (!JEFA_PERSON || !JEFA_PERSON.trim()) return;
-      const pid = `${rootId}_P`;
-      const eid = `${rootId}-${pid}`;
-      if (!nodes.get(pid)){
-        mountBox(pid, JEFA_PERSON.trim(), 0, { font:{ italics:true } });
-        addEdge(rootId, pid);
-        try{ edges.update({ id:eid, dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal' } }); }catch(_){}
-        openedPersons.add(pid);
-      }
-      const r = network.getPositions([rootId])[rootId] || {x:0,y:0};
-      nodes.update({ id: pid, x: r.x + JEFA_SIDE_OFFSET, y: r.y, level: 0, fixed:{ x:true, y:true } });
-    }
-    function keepJefaPersonSideAlignedFor(rootId){
-      const pid = `${rootId}_P`;
-      if (!nodes.get(pid) || !nodes.get(rootId)) return;
-      const r = network.getPositions([rootId])[rootId];
-      nodes.update({ id: pid, x: r.x + JEFA_SIDE_OFFSET, y: r.y, level: 0 });
     }
 
     /****************** ESPACIADO Y FIJACIÓN ******************/
@@ -190,11 +170,6 @@
       applyVerticalByLevel(0);
       setTimeout(() => {
         applyHorizontalSpacingAll(MIN_GAP);
-
-        // Mantener la persona de Jefa al costado si está dibujada
-        if (currentKey === "oap") keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
-        else keepJefaPersonSideAlignedFor(STICKY_ID);
-
         setTimeout(() => {
           fixAllPositions(true);
           network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
@@ -205,7 +180,8 @@
 
     /****************** PERSONAS / SUBROLES ******************/
     function togglePersonNode(roleId, personLabel, levelIfUnknown, planta=false){
-      if(!personLabel || !String(personLabel).trim()) return;
+      const label = (personLabel || "").trim();
+      if(!label) return;
       const pid = `${roleId}_P`;
       if(openedPersons.has(pid)){
         try{ nodes.remove(pid); }catch(_){}
@@ -217,12 +193,12 @@
       const personLevel = (roleLevel!=null ? roleLevel + 1 : (levelIfUnknown || 3));
       const extra = { font:{ italics:true } };
       if(planta) extra.color = { background:"#efe9ff", border:"#7a5cff" };
-      mountBox(pid, String(personLabel).trim(), personLevel, extra);
+      mountBox(pid, label, personLevel, extra);
       addEdge(roleId, pid);
       openedPersons.add(pid);
     }
 
-    // Solo crea persona placeholder si el subrol NO es contenedor
+    // Subroles (con reglas de líder y sin placeholder en contenedores)
     function toggleSubroles(roleId, subrolesArr, dataCtx){
       if(!subrolesArr || !subrolesArr.length) return;
 
@@ -240,25 +216,41 @@
       }
 
       const roleLevel = getLevel(roleId) ?? 3;
-      const subLevel = roleLevel + 1;
-      const personLevel = subLevel + 1;
+
+      // REGLA NUEVA: si el padre es el LÍDER, sus subroles bajan 2 niveles (a 4) y su persona queda en 3
+      const isLeaderParent = (LEADER_NODE_ID && roleId === LEADER_NODE_ID);
+      const subLevelBase = roleLevel + (isLeaderParent ? 2 : 1);
+      const personLevelBase = roleLevel + 1;
 
       subrolesArr.forEach(sr=>{
-        mountBox(sr.id, sr.name, subLevel);
+        // 1) subrol
+        mountBox(sr.id, sr.name, subLevelBase);
         addEdge(roleId, sr.id);
 
+        // 2) persona del subrol
         const hasGrandkids = !!getSubrolesArr(dataCtx, sr.id)?.length;
+        const personText = (sr.person || "").trim();
 
-        if (sr.person && sr.person.trim()){
-          mountBox(`${sr.id}_P`, sr.person.trim(), personLevel, { font:{ italics:true } });
+        if (personText){
+          mountBox(`${sr.id}_P`, personText, subLevelBase + 1, { font:{ italics:true } });
           addEdge(sr.id, `${sr.id}_P`);
           openedPersons.add(`${sr.id}_P`);
         } else if (!hasGrandkids) {
-          mountBox(`${sr.id}_P`, "Nuevo perfil", personLevel, { font:{ italics:true } });
+          // sólo placeholder si NO es contenedor
+          mountBox(`${sr.id}_P`, "Nuevo perfil", subLevelBase + 1, { font:{ italics:true } });
           addEdge(sr.id, `${sr.id}_P`);
           openedPersons.add(`${sr.id}_P`);
         }
       });
+
+      // Si el padre es el LÍDER y tiene persona, asegúrate de que quede en nivel 3 (por encima de sus subroles)
+      if (isLeaderParent){
+        const lp = nodes.get(`${roleId}_P`);
+        if (lp && typeof lp.level === "number" && lp.level !== personLevelBase){
+          nodes.update({ id: `${roleId}_P`, level: personLevelBase });
+        }
+      }
+
       openedSubroles.add(roleId);
     }
 
@@ -308,10 +300,7 @@
       const {title, person} = splitTitlePerson(data.label);
       JEFA_LABEL = title || JEFA_LABEL; if(person) JEFA_PERSON = person;
 
-      // Nodo raíz (Jefa)
       mountBox(data.id, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
-
-      // Equipos (nivel 1)
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
 
       updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
@@ -332,14 +321,10 @@
 
       const data = (view==="ANTES") ? orgBefore : orgAfter;
 
-      // Jefa fija
       mountBox(STICKY_ID, JEFA_LABEL, 0, { color:{ background:"#fff", border:accent() }, borderWidth:2 });
-
-      // Nodo del equipo
       TEAM_ROOT_ID = `TEAM_${currentKey.toUpperCase()}`;
       mountBox(TEAM_ROOT_ID, cleanPhase(data.label), 1); addEdge(STICKY_ID, TEAM_ROOT_ID);
 
-      // Roles
       (data.roles || []).forEach(r=>{ mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
       rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
       addCountsToNodes(data);
@@ -404,18 +389,7 @@
       if(currentKey === "oap"){
         const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-        // Clic en Jefa OAP: expandir/colapsar + alternar persona al costado
         if(id===data.id){
-          // Toggle persona al costado SOLO bajo demanda
-          const pid = `${data.id}_P`;
-          if (nodes.get(pid)){ try{ edges.remove(`${data.id}-${pid}`);}catch(_){}
-            try{ nodes.remove(pid);}catch(_){}
-            openedPersons.delete(pid);
-          } else {
-            placeSidePersonFor(data.id);
-          }
-
-          // Y además expandir/colapsar primer nivel como siempre
           if(expandedRoot.has(data.id)){
             (data.roles||[]).forEach(r=>{
               closeSubtree(r.id, data);
@@ -423,13 +397,11 @@
               try{ edges.remove(`${data.id}-${r.id}`);}catch(_){}
               try{ nodes.remove(r.id);}catch(_){}
             });
-            expandedRoot.delete(data.id);
+            expandedRoot.delete(data.id); stabilizeAndFit(120); return;
           }else{
             (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 1); addEdge(data.id, r.id); });
-            expandedRoot.add(data.id);
+            expandedRoot.add(data.id); stabilizeAndFit(120); return;
           }
-          stabilizeAndFit(120);
-          return;
         }
 
         const role = (data.roles||[]).find(r=>r.id===id);
@@ -441,18 +413,7 @@
       // Vista de equipo
       const data = (MODE==="ANTES") ? orgBefore : orgAfter;
 
-      // Clic en Jefa OAP (sticky): alterna persona al costado
-      if(id===STICKY_ID){
-        const pid = `${STICKY_ID}_P`;
-        if (nodes.get(pid)){ try{ edges.remove(`${STICKY_ID}-${pid}`);}catch(_){}
-          try{ nodes.remove(pid);}catch(_){}
-          openedPersons.delete(pid);
-        } else {
-          placeSidePersonFor(STICKY_ID);
-        }
-        stabilizeAndFit(120);
-        return;
-      }
+      if(id===STICKY_ID){ togglePersonNode(STICKY_ID, JEFA_PERSON, 1, true); stabilizeAndFit(120); return; }
 
       if(id===TEAM_ROOT_ID){
         if(expandedRoot.has(TEAM_ROOT_ID)){
@@ -462,27 +423,34 @@
             try{ edges.remove(`${TEAM_ROOT_ID}-${r.id}`);}catch(_){}
             try{ nodes.remove(r.id);}catch(_){}
           });
-          expandedRoot.delete(TEAM_ROOT_ID);
+          expandedRoot.delete(TEAM_ROOT_ID); stabilizeAndFit(120);
         }else{
           (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id, r.name, 2); addEdge(TEAM_ROOT_ID, r.id); });
           rewireUnderLeaderIfAny(TEAM_ROOT_ID, data.roles, LEADER_NODE_ID);
-          expandedRoot.add(TEAM_ROOT_ID);
+          expandedRoot.add(TEAM_ROOT_ID); stabilizeAndFit(120);
         }
-        stabilizeAndFit(120);
         return;
       }
 
-      // clic en rol de primer nivel
+      // clic en rol de primer nivel (bajo equipo o bajo líder)
       const role = (data.roles||[]).find(r=>r.id===id);
       if(role){
-        togglePersonNode(role.id, role.person, 3, !!role.planta);
+        // persona del rol
+        if (role.person && role.person.trim()){
+          togglePersonNode(role.id, role.person, 3, !!role.planta);
+        } else if (role.id === LEADER_NODE_ID){
+          // si el LÍDER no tiene persona en el JSON, muestra placeholder (p.ej. “Nuevo perfil”)
+          togglePersonNode(role.id, "Nuevo perfil", 3, !!role.planta);
+        }
+
+        // abrir subroles (con regla especial de líder)
         const arr = data.subroles?.[role.id];
         if(arr && arr.length) toggleSubroles(role.id, arr, data);
         stabilizeAndFit(120);
         return;
       }
 
-      // abrir nodos contenedores (SIMISIONAL, PANDORA, etc.)
+      // abrir también nodos contenedores (SIMISIONAL, PANDORA, etc.)
       const nested = getSubrolesArr(data, id);
       if (nested && nested.length){
         toggleSubroles(id, nested, data);
