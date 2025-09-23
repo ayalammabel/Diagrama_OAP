@@ -1,5 +1,12 @@
 {
-  "meta": { "equipo": "OAP General", "titulo": "Organización general OAP" },
+  "meta": {
+    "equipo": "OAP General",
+    "titulo": "Organización general OAP",
+    "strategist": {
+      "label": "Analista estratégica",
+      "person": "Catalina Sánchez"
+    }
+  },
 
   "before": {
     "label": "Jefa OAP – Paola Rojas (ANTES)",
