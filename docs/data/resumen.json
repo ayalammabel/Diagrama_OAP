@@ -1,0 +1,47 @@
+{
+  "version": "2025-02-01",
+  "equipos": {
+    "oap": {
+      "label": "OAP General",
+      "antes": { "total": 44, "nota": "Incluye contratistas (7)" },
+      "despues": { "total": 43, "nota": "Incluye contratistas (7)" }
+    },
+    "4p": {
+      "label": "Planes, Proyectos, Procesos y Programas",
+      "antes": { "total": 6 },
+      "despues": { "total": 8 },
+      "subdivisiones": [
+        { "label": "Proyectos", "antes": 4, "despues": 3 },
+        { "label": "Presupuestos", "antes": 1, "despues": 1 },
+        { "label": "Políticas", "antes": 1, "despues": 1 },
+        { "label": "Líder", "antes": 0, "despues": 1 },
+        { "label": "Gerencia proyecto 8225", "antes": 0, "despues": 2 }
+      ]
+    },
+    "ti": {
+      "label": "Tecnologías de la Información",
+      "antes": { "total": 19, "nota": "(3 contratistas)" },
+      "despues": { "total": 20, "nota": "(3 contratistas)" },
+      "subdivisiones": [
+        { "label": "Infraestructura y soporte", "antes": 7, "despues": 8 },
+        { "label": "Desarrollo", "antes": 12, "despues": 11 },
+        { "label": "Arquitecto de soluciones", "antes": 0, "despues": 1 }
+      ]
+    },
+    "gestion_conocimiento": {
+      "label": "Gestión del Conocimiento",
+      "antes": { "total": 3 },
+      "despues": { "total": 3 }
+    },
+    "mipg": {
+      "label": "MIPG",
+      "antes": { "total": 8, "nota": "(1 contratista)" },
+      "despues": { "total": 6, "nota": "(1 contratista)" }
+    },
+    "administrativo": {
+      "label": "Administrativo",
+      "antes": { "total": 8, "nota": "(2 contratistas)" },
+      "despues": { "total": 6, "nota": "(2 contratistas)" }
+    }
+  }
+}
