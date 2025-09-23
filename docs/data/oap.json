@@ -11,7 +11,7 @@
   "before": {
     "label": "Jefa OAP – Paola Rojas (ANTES)",
     "roles": [
-      { "id": "B_4P",   "name": "Proyectos, Procesos, Planes y Programas (6)",                       "person": "", "route": "4p" },
+      { "id": "B_4P",   "name": "Políticas, Proyectos, Planes y Presupuestos (6)",                       "person": "", "route": "4p" },
       { "id": "B_GC",   "name": "Gestión del Conocimiento (3)", "person": "", "route": "gestion_conocimiento" },
       { "id": "B_ADM",  "name": "Administrativo (8)",           "person": "", "route": "administrativo" },
       { "id": "B_TI",   "name": "Tecnologías de la Información (19)",                           "person": "", "route": "ti" },
@@ -22,7 +22,7 @@
   "after": {
     "label": "Jefa OAP – Paola Rojas (DESPUÉS)",
     "roles": [
-      { "id": "A_4P",   "name": "Proyectos, Procesos, Planes y Programas (8)",                       "person": "", "route": "4p" },
+      { "id": "A_4P",   "name": "Políticas, Proyectos, Planes y Presupuestos (8)",                       "person": "", "route": "4p" },
       { "id": "A_GC",   "name": "Gestión del Conocimiento (3)", "person": "", "route": "gestion_conocimiento" },
       { "id": "A_ADM",  "name": "Administrativo (6)",           "person": "", "route": "administrativo" },
       { "id": "A_TI",   "name": "Tecnologías de la Información (20)",                           "person": "", "route": "ti" },
