@@ -6,7 +6,7 @@
   },
 
   "before": {
-    "label": "TI – ANTES",
+    "label": "Tecnologías de la Información – ANTES",
     "roles": [
       { "id": "B_LIDER",           "name": "Líder",                         "person": "José Leonardo Buitrago" },
 
@@ -45,7 +45,7 @@
   },
 
   "after": {
-    "label": "TI – DESPUÉS",
+    "label": "Tecnologías de la Información – DESPUÉS",
     "roles": [
       { "id": "A_ARQ_SOL", "name": "Arquitecto de Soluciones (Líder)", "person": "Nuevo perfil" },
       { "id": "A_INFRA",   "name": "Infraestructura y soporte",        "person": "" },
