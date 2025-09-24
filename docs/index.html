@@ -172,6 +172,12 @@ const OAP_MANUAL_COUNTS = {
 };
 const TEAM_FIXED_COUNTS = {};
 
+/* ====== NUEVO: ocultar "(n roles)" solo en nodos específicos por equipo ====== */
+const HIDE_ROLE_COUNTS = {
+  ti: ['A_INFRA','A_DEV']   // Infraestructura y soporte, Equipo de Desarrolladores
+  // Puedes agregar más equipos/nodos si lo necesitas
+};
+
 /* ================== network ================== */
 const LEVEL_Y_GAP = 130;
 const MIN_GAP = 300;
@@ -452,7 +458,7 @@ function enrichCountsForOAP(roles){
 function baseNetworkOptions(){ network.setOptions(baseOptions()); }
 
 function mountOAP(view){
-  MODE=view||"DESPUÉS"; clearAll(); baseNetworkOptions(); refreshButtons();
+  MODE=view||("DESPUÉS"); clearAll(); baseNetworkOptions(); refreshButtons();
   const data=(MODE==="ANTES")?orgBefore:orgAfter; if(!data) return;
   const tp=splitTitlePerson(data.label); if(tp.title) JEFA_LABEL=cleanPhase(tp.title); if(tp.person) JEFA_PERSON=tp.person;
   mountBox(data.id,JEFA_LABEL,0,{ color:{ background:"#fff", border:accent() }, borderWidth:2 }); nodes.update({id:data.id, x:0});
@@ -463,10 +469,20 @@ function mountOAP(view){
   updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
 }
 
+/* ====== MODIFICADA: respeta HIDE_ROLE_COUNTS ====== */
 function addCountsToNodes(data,overrides){
   if(!data || !data.subroles) return;
+
+  const team = currentKey;                 // p.ej. "ti"
+  const pref = team.toUpperCase() + '_';   // "TI_"
+  const toHide = (HIDE_ROLE_COUNTS[team] || []).map(k => pref + k);
+
   for(const parentId in data.subroles){
-    const node=nodes.get(parentId); if(!node) continue;
+    if (toHide.includes(parentId)) continue; // NO añadir "(n roles)" en estos nodos
+
+    const node=nodes.get(parentId);
+    if(!node) continue;
+
     const base=stripTrailingCount(node.label||"");
     const nOverride=overrides && overrides[base];
     const n=(nOverride!=null)?nOverride:data.subroles[parentId].length;
@@ -750,7 +766,6 @@ loadTeam("oap");
 </script>
 </body>
 </html>
-
 
 
 
