@@ -26,8 +26,6 @@
     --bar-after:var(--accent);
     --bar-track:#eef2ff;
     --pill-active: var(--bar-after);  /* se cambia dinámicamente según modo */
-
-    --drawer-top: 0px;
   }
 
   *{box-sizing:border-box}
@@ -78,23 +76,11 @@
   }
   .drawer.open .sheet{ transform:translateX(0); }
 
-  .sheet__head{
-    display:flex; align-items:center; gap:8px;
-    padding:10px 12px; padding-right:52px; /* espacio para la X */
-    border-bottom:1px solid var(--border);
-    position:sticky; top:0; background:#fff; z-index:5;
-  }
+  .sheet__head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border)}
   .sheet__title{font-weight:800}
   .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; font-weight:700; cursor:pointer; user-select:none}
   .pill.active{background:var(--pill-active); border-color:var(--pill-active); color:#fff}
   .spacer{flex:1}
-  .xbtn{
-    width:36px; height:36px; border:1px solid var(--border); border-radius:8px; background:#fff;
-    cursor:pointer; font-weight:800; color:#111; line-height:1; font-size:20px;
-    display:inline-flex; align-items:center; justify-content:center;
-    position:absolute; right:8px; top:8px; z-index:6;
-  }
-  .xbtn:hover{ background:#f3f4f6 }
 
   .sheet__body{padding:12px; overflow:auto}
   .legend{display:flex; align-items:center; gap:10px; font-size:.9rem; color:#475569; margin:0 0 8px 2px}
@@ -117,9 +103,8 @@
   .summary-table th, .summary-table td{border-bottom:1px solid #e9e9f3; padding:8px 10px; text-align:center; white-space:nowrap;}
   .summary-table thead th{text-align:left; position:sticky; top:0; background:#fff;}
   .summary-table .left{text-align:left}
-  .summary-table tfoot td{font-weight:800; background:#fafafa}
 
-  /* Botón para abrir el drawer */
+  /* Botón para abrir/cerrar el drawer */
   .btn-small{padding:8px 12px; border-radius:12px; font-weight:700; border:1px solid var(--border); background:#fff; cursor:pointer}
 </style>
 </head>
@@ -152,7 +137,7 @@
 
   <div id="network"></div>
 
-  <!-- ===== Drawer lateral ===== -->
+  <!-- ===== Drawer lateral (sin X, se cierra con el botón Resumen o ESC) ===== -->
   <aside id="drawer" class="drawer" aria-hidden="true">
     <div class="sheet" role="dialog" aria-label="Resumen de personas">
       <div class="sheet__head">
@@ -163,7 +148,6 @@
         <button id="pillDespues"  class="pill active">Después</button>
         <button id="pillComparar" class="pill">Comparar</button>
         <button id="pillSubs"     class="pill" aria-pressed="false" title="Mostrar subdivisiones">Subdividir</button>
-
       </div>
 
       <div class="sheet__body">
@@ -204,7 +188,7 @@ const OAP_MANUAL_COUNTS = {
 };
 const TEAM_FIXED_COUNTS = {};
 
-/* ================== network ================== */
+/* ================== network (sin cambios funcionales) ================== */
 const LEVEL_Y_GAP = 130;
 const MIN_GAP = 300;
 
@@ -321,18 +305,54 @@ function buildDottedArcsToTeams(roles){
   });
 }
 
-function stabilizeAndFit(anim=200){
-  setStatus("Ajustando layout…"); unfixAllPositions(); applyVerticalByLevel(0);
-  setTimeout(()=>{ applyHorizontalSpacingAll(MIN_GAP);
-    if(currentKey==='oap'){
-      if(nodes.get(orgAfter?.id||orgBefore?.id)){ nodes.update({id:(MODE==="ANTES"?orgBefore.id:orgAfter.id),x:0}); }
-      if(nodes.get(STRATEGIST_ID)){ nodes.update({id:STRATEGIST_ID,x:0}); }
-      keepJefaPersonSideAlignedFor((MODE==="ANTES")?orgBefore.id:orgAfter.id);
-      if(nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID,SIDE_OFFSET);
+/* ====== AJUSTE ZOOM: mantener vista cuando corresponde ====== */
+function stabilizeAndFit(anim = 200, viewToRestore = null){
+  setStatus("Ajustando layout…");
+  unfixAllPositions();
+  applyVerticalByLevel(0);
+
+  setTimeout(() => {
+    applyHorizontalSpacingAll(MIN_GAP);
+
+    if (currentKey === 'oap'){
+      if (nodes.get(orgAfter?.id || orgBefore?.id)) {
+        nodes.update({ id:(MODE==="ANTES"?orgBefore.id:orgAfter.id), x: 0 });
+      }
+      if (nodes.get(STRATEGIST_ID)) { nodes.update({ id: STRATEGIST_ID, x: 0 }); }
+      keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
+      if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, SIDE_OFFSET);
     }
-    setTimeout(()=>{ fixAllPositions(true); network.fit({animation:{duration:anim,easingFunction:"easeInOutQuad"}}); setStatus("Listo"); },0);
-  },0);
+
+    setTimeout(() => {
+      fixAllPositions(true);
+
+      if (viewToRestore){
+        network.moveTo({
+          position: viewToRestore.position,
+          scale: viewToRestore.scale,
+          animation: { duration: anim, easingFunction:"easeInOutQuad" }
+        });
+      } else {
+        network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
+      }
+
+      setStatus("Listo");
+    }, 0);
+  }, 0);
 }
+
+function captureView(){
+  return {
+    position: network.getViewPosition(),
+    scale: network.getScale()
+  };
+}
+function refreshKeepingZoom(anim = 120){
+  const view = captureView();
+  stabilizeAndFit(anim, view);
+}
+
+/* ====== FIN zoom ====== */
 
 function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
   const label=(personLabel||"").trim(); if(!label) return;
@@ -405,7 +425,7 @@ function mountOAP(view="DESPUÉS"){
   if(hasStrategist){ mountBox(STRATEGIST_ID,STRATEGIST.label,1); addEdge(data.id,STRATEGIST_ID); nodes.update({id:STRATEGIST_ID,x:0}); }
   const levelTeams=hasStrategist?2:1;
   (data.roles||[]).forEach(r=>{ mountBox(r.id,r.name,levelTeams); addEdge(data.id,r.id); });
-  updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
+  updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160); /* fit en cambio grande */
 }
 
 function addCountsToNodes(data,overrides){
@@ -433,9 +453,7 @@ function mountTeam(view="DESPUÉS"){
   }
   const teamOverrides=(TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES")?"ANTES":"DESPUÉS"]) || null;
   addCountsToNodes(data,teamOverrides);
-  updateCountsUI(); stabilizeAndFit(160);
-
-  if(drawerOpen) renderResumen();
+  updateCountsUI(); stabilizeAndFit(160); /* fit en cambio grande */
 }
 
 async function loadTeam(key){
@@ -487,14 +505,14 @@ network.on("click",(p)=>{
         (data.roles||[]).forEach(r=>{ if(!nodes.get(r.id)) mountBox(r.id,r.name,levelTeams); addEdge(data.id,r.id); });
         buildDottedArcsToTeams(data.roles); expandedRoot.add(data.id);
       }
-      stabilizeAndFit(120); return;
+      refreshKeepingZoom(120); return;
     }
 
-    if(id===STRATEGIST_ID){ togglePersonNode(STRATEGIST_ID,STRATEGIST?.person||"",2,false); nodes.update({id:STRATEGIST_ID,x:0}); stabilizeAndFit(120); return; }
+    if(id===STRATEGIST_ID){ togglePersonNode(STRATEGIST_ID,STRATEGIST?.person||"",2,false); nodes.update({id:STRATEGIST_ID,x:0}); refreshKeepingZoom(120); return; }
 
     const role=(data.roles||[]).find(r=>r.id===id);
     if(role && role.route){ loadTeam(role.route); return; }
-    if(role && !role.route){ togglePersonNode(role.id,role.person,3,!!role.planta); stabilizeAndFit(120); }
+    if(role && !role.route){ togglePersonNode(role.id,role.person,3,!!role.planta); refreshKeepingZoom(120); }
     return;
   }
 
@@ -511,7 +529,7 @@ network.on("click",(p)=>{
       rewireUnderLeaderIfAny(TEAM_ROOT_ID,data.roles,CURRENT_LEADER_ID);
       expandedRoot.add(TEAM_ROOT_ID);
     }
-    stabilizeAndFit(120); return;
+    refreshKeepingZoom(120); return;
   }
 
   const role=(data.roles||[]).find(r=>r.id===id);
@@ -526,11 +544,11 @@ network.on("click",(p)=>{
       togglePersonNode(role.id,role.person,3,!!role.planta);
       const arr=data.subroles?.[role.id]; if(arr && arr.length) toggleSubroles(role.id,arr,data);
     }
-    stabilizeAndFit(120); return;
+    refreshKeepingZoom(120); return;
   }
 
   const nested=getSubrolesArr(data,id);
-  if(nested && nested.length){ toggleSubroles(id,nested,data); stabilizeAndFit(120); return; }
+  if(nested && nested.length){ toggleSubroles(id,nested,data); refreshKeepingZoom(120); return; }
 });
 
 /* ======== Drawer: Resumen ======== */
@@ -589,7 +607,7 @@ function renderResumen(){
   const rows = rowsForScope();
   const maxVal = Math.max(...rows.map(r => Math.max(r.a, r.d, 1)));
 
-  // BARRAS
+  // BARRAS (solo números)
   let out='';
   rows.forEach(r=>{
     const cls = r.isSub ? 'row sub' : 'row';
@@ -612,12 +630,13 @@ function renderResumen(){
   });
   chart.innerHTML = out;
 
-  // TABLA INFERIOR + TOTALES
+  // TABLA INFERIOR + TOTALES (suma solo filas de grupo para no duplicar al incluir subdivisiones)
   let th = (resumenMode==='COMPARAR')
             ? `<th>Antes</th><th>Después</th>`
             : `<th>${resumenMode==='ANTES'?'Antes':'Después'}</th>`;
+
+  let totalA = 0, totalD = 0;
   let tbody='';
-  let totalA=0, totalD=0;
   rows.forEach(r=>{
     if(r.isGroup){ totalA += Number(r.a||0); totalD += Number(r.d||0); }
     tbody += `<tr>
@@ -629,8 +648,8 @@ function renderResumen(){
   });
 
   const tfoot = (resumenMode==='COMPARAR')
-    ? `<tfoot><tr><td class="left">Total</td><td>${totalA}</td><td>${totalD}</td></tr></tfoot>`
-    : `<tfoot><tr><td class="left">Total</td><td>${resumenMode==='ANTES'?totalA:totalD}</td></tr></tfoot>`;
+    ? `<tr><th class="left">Total</th><th>${totalA}</th><th>${totalD}</th></tr>`
+    : `<tr><th class="left">Total</th><th>${resumenMode==='ANTES'?totalA:totalD}</th></tr>`;
 
   tableWrap.innerHTML = `
     <table class="summary-table">
@@ -638,11 +657,11 @@ function renderResumen(){
         <tr><th class="left">Equipos / subdivisiones</th>${th}</tr>
       </thead>
       <tbody>${tbody}</tbody>
-      ${tfoot}
+      <tfoot>${tfoot}</tfoot>
     </table>`;
 }
 
-/* abrir/cerrar */
+/* abrir/cerrar (toggle con el mismo botón Resumen) */
 const drawer = document.getElementById('drawer');
 function openDrawer(){
   positionDrawer();
@@ -652,16 +671,13 @@ function closeDrawer(){
   drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); drawerOpen=false;
 }
 
-/* Toggle con el mismo botón "Resumen" */
 document.getElementById('openSummary').addEventListener('click', async ()=>{
-  if (drawerOpen) { closeDrawer(); return; }
+  if(drawerOpen){ closeDrawer(); return; }
   openDrawer();
   await ensureResumen();
   togglePillsUI();
   renderResumen();
 });
-
-document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
 window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && drawerOpen) closeDrawer(); });
 window.addEventListener('resize', ()=>{ if(drawerOpen) positionDrawer(); });
 
@@ -688,7 +704,6 @@ loadTeam("oap");
 </script>
 </body>
 </html>
-
 
 
 
