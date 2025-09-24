@@ -70,7 +70,8 @@
         { "id": "DEV_ICOPS",      "name": "ICOPS",      "person": "" },
         { "id": "DEV_ORFEO",      "name": "ORFEO",      "person": "" },
         { "id": "DEV_KAWAK",      "name": "KAWAK",      "person": "" },
-        { "id": "DEV_FURAG",      "name": "FURAG",      "person": "" }
+        { "id": "DEV_FURAG",      "name": "FURAG",      "person": "" },
+        { "id": "DEV_WEBMASTER",     "name": "WEB MASTER",      "person": "Miguel Acuña" },
       ],
       "DEV_SIMISIONAL": [
         { "id": "SR_SIM_ANAL", "name": "Analista (Levantamiento de Requerimientos)", "person": "Luz Yamile Reyes" },
