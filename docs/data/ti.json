@@ -9,7 +9,7 @@
     "label": "Tecnologías de la Información – ANTES",
     "roles": [
       { "id": "B_LIDER", "name": "Líder", "person": "José Leonardo Buitrago" },
-      { "id": "B_DBA", "name": "DBA", "person": "Gleidy Jimenes" },
+      { "id": "B_DBA", "name": "DBA", "person": "Gleidy Jerez" },
       { "id": "B_DEV_ICOPS", "name": "Desarrollo ICOPS", "person": "Laura Gómez" },
       { "id": "B_DEV_FURAGICO", "name": "Desarrollo FURAG / ICOPS", "person": "Giovanni Benitez" },
       { "id": "B_DEV_ORFEO", "name": "Desarrollo ORFEO", "person": "Javier García" },
