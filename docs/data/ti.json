@@ -59,7 +59,7 @@
         { "id": "SR_INF_JE", "name": "Apoyo Infraestructura", "person": "Jorge Escalante" },
         { "id": "SR_INF_OC", "name": "Apoyo Infraestructura", "person": "Oscar Carvajal" },
         { "id": "SR_INF_FP", "name": "Apoyo Infraestructura", "person": "Fabián Puentes" },
-        { "id": "SR_INF_NP", "name": "Apoyo Infraestructura", "person": "Nuevo perfil" },
+        { "id": "SR_INF_NP", "name": "Apoyo a Soporte", "person": "Nuevo perfil" },
         { "id": "SR_SUP_CM", "name": "Apoyo a Soporte",       "person": "Carlos Moreno" },
         { "id": "SR_SUP_LB", "name": "Apoyo a Soporte",       "person": "Leonardo Becerra" },
         { "id": "SR_SUP_JV", "name": "Apoyo a Soporte",       "person": "John Ventura" }
