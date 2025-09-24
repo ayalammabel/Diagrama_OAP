@@ -25,7 +25,7 @@
     --bar-before:var(--accent-antes);
     --bar-after:var(--accent);
     --bar-track:#eef2ff;
-    --pill-active: var(--bar-after);  /* se cambia dinámicamente según modo */
+    --pill-active: var(--bar-after);
   }
 
   *{box-sizing:border-box}
@@ -50,7 +50,6 @@
   .hintwrap{background:var(--appbar-bg); border-bottom:1px solid var(--border)}
   .hint{max-width:1200px; margin:0 auto; padding:8px 20px 16px; color:var(--muted); font-size:.95rem}
 
-  /* Lienzo con grid sutil */
   #network{
     height:82vh;
     background:
@@ -104,7 +103,6 @@
   .summary-table thead th{text-align:left; position:sticky; top:0; background:#fff;}
   .summary-table .left{text-align:left}
 
-  /* Botón para abrir/cerrar el drawer */
   .btn-small{padding:8px 12px; border-radius:12px; font-weight:700; border:1px solid var(--border); background:#fff; cursor:pointer}
 </style>
 </head>
@@ -137,7 +135,7 @@
 
   <div id="network"></div>
 
-  <!-- ===== Drawer lateral (sin X, se cierra con el botón Resumen o ESC) ===== -->
+  <!-- ===== Drawer lateral (sin X) ===== -->
   <aside id="drawer" class="drawer" aria-hidden="true">
     <div class="sheet" role="dialog" aria-label="Resumen de personas">
       <div class="sheet__head">
@@ -158,9 +156,7 @@
         <div id="chart"></div>
 
         <hr class="hr" />
-        <div id="tableWrap" style="min-height:220px">
-          <!-- tabla abajo -->
-        </div>
+        <div id="tableWrap" style="min-height:220px"></div>
       </div>
     </div>
   </aside>
@@ -188,7 +184,7 @@ const OAP_MANUAL_COUNTS = {
 };
 const TEAM_FIXED_COUNTS = {};
 
-/* ================== network (sin cambios funcionales) ================== */
+/* ================== network ================== */
 const LEVEL_Y_GAP = 130;
 const MIN_GAP = 300;
 
@@ -243,11 +239,7 @@ const accent = ()=> getComputedStyle(document.body).getPropertyValue('--accent')
 const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'').replace(/\s*\((ANTES|DESPUÉS)\)\s*$/i,'').trim();
 function stripTrailingCount(s){ return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim(); }
 function splitTitlePerson(lbl){ if(!lbl) return {title:"", person:""}; const base=cleanPhase(lbl); const m=base.match(/^(.+?)\s*[–-]\s*(.+)$/); return m?{title:m[1].trim(), person:m[2].trim()}:{title:base, person:""}; }
-
-/* === helper para detectar "Líder" === */
-function isLeaderLabel(s){
-  return /\bL[ií]der\b/i.test(String(s||''));
-}
+function isLeaderLabel(s){ return /\bL[ií]der\b/i.test(String(s||'')); }
 
 function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear(); }
 function mountBox(id,label,level,extra={}){ nodes.add(Object.assign({ id,label,level,shape:"box",color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
@@ -256,6 +248,10 @@ function getLevel(nodeId){ const n=nodes.get(nodeId); return (n && typeof n.leve
 function getSubrolesArr(data,nodeId){ return (data && data.subroles && data.subroles[nodeId]) ? data.subroles[nodeId] : null; }
 function removePerson(parentId){ const pid=`${parentId}_P`; if(openedPersons.has(pid)){ try{nodes.remove(pid);}catch(_){} try{edges.remove(`${parentId}-${pid}`);}catch(_){} openedPersons.delete(pid);} }
 function removeSidePerson(parentId){ const sid=`${parentId}_S`; if(sidePersons.has(sid)){ try{nodes.remove(sid);}catch(_){} try{edges.remove(`${parentId}-${sid}`);}catch(_){} sidePersons.delete(sid);} }
+
+/* Helpers de estructura */
+function childrenOf(parentId){ return edges.get({ filter:e=>e.from===parentId }).map(e=>e.to).filter(id => !!nodes.get(id)); }
+function getParentId(nodeId){ const inc = edges.get({ filter:e => e.to === nodeId }); return inc.length ? inc[0].from : null; }
 
 function closeSubtree(nodeId,data){
   const children = getSubrolesArr(data,nodeId) || [];
@@ -269,8 +265,18 @@ function closeSubtree(nodeId,data){
   openedSubroles.delete(nodeId);
 }
 
+/* Cerrar ramas hermanas al abrir una */
+function collapseSiblings(parentId, keepId, dataCtx){
+  if(!parentId) return;
+  (childrenOf(parentId) || []).forEach(cid=>{
+    if(cid===keepId) return;
+    closeSubtree(cid, dataCtx);
+    removePerson(cid);
+    removeSidePerson(cid);
+  });
+}
+
 function applyVerticalByLevel(y0=0){ const all=nodes.get(); nodes.update(all.map(n => (typeof n.level==='number')?{id:n.id,y:y0+n.level*LEVEL_Y_GAP}:{id:n.id})); }
-function childrenOf(parentId){ return edges.get({ filter:e=>e.from===parentId }).map(e=>e.to).filter(id => !!nodes.get(id)); }
 function spreadChildren(parentId,gap=MIN_GAP){ const kids=childrenOf(parentId); if(kids.length<2) return;
   const p=network.getPositions([parentId])[parentId]||{x:0,y:0}; const posKids=network.getPositions(kids);
   kids.sort((a,b)=>(posKids[a]?.x||0)-(posKids[b]?.x||0)); const total=(kids.length-1)*gap; let startX=p.x-total/2;
@@ -282,12 +288,13 @@ function unfixAllPositions(){ nodes.update(nodes.get().map(n=>({id:n.id,fixed:{x
 
 const expandedRoot=new Set(); const openedPersons=new Set(); const openedSubroles=new Set(); const sidePersons=new Set(); const dottedArcIds=new Set();
 
+/* Chip lateral — ahora con línea recta sin suavizado */
 function placeSidePersonFor(rootId,label,offset=SIDE_OFFSET){
   if(!label||!label.trim()) return;
   const sid=`${rootId}_S`; const rootNode=nodes.get(rootId); if(!rootNode) return;
   if(!nodes.get(sid)){
     mountBox(sid,label.trim(),rootNode.level,{ font:{ italics:true }, color:{ background:"#f8fafc", border:"#d1d5db" }, shapeProperties:{ borderRadius:999 } });
-    addEdge(rootId,sid,{ dashes:true, arrows:'to', smooth:{ enabled:true, type:'horizontal', forceDirection:'vertical' } });
+    addEdge(rootId,sid,{ dashes:true, arrows:'', smooth:false, width:1.2, color:{ color:'#9aa3b2' } });
     sidePersons.add(sid);
   }
   const r=network.getPositions([rootId])[rootId]||{x:0,y:0};
@@ -310,7 +317,7 @@ function buildDottedArcsToTeams(roles){
   });
 }
 
-/* ====== AJUSTE ZOOM: mantener vista cuando corresponde ====== */
+/* ====== ZOOM: conservar vista ====== */
 function stabilizeAndFit(anim = 200, viewToRestore = null){
   setStatus("Ajustando layout…");
   unfixAllPositions();
@@ -319,7 +326,6 @@ function stabilizeAndFit(anim = 200, viewToRestore = null){
   setTimeout(() => {
     applyHorizontalSpacingAll(MIN_GAP);
 
-    // Re-centrar OAP y estratega
     if (currentKey === 'oap'){
       if (nodes.get(orgAfter?.id || orgBefore?.id)) {
         nodes.update({ id:(MODE==="ANTES"?orgBefore.id:orgAfter.id), x: 0 });
@@ -329,7 +335,7 @@ function stabilizeAndFit(anim = 200, viewToRestore = null){
       if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, SIDE_OFFSET);
     }
 
-    // Re-alinear todos los chips laterales activos
+    /* realinear chips laterales siempre */
     sidePersons.forEach(sid=>{
       const parentId = sid.replace(/_S$/,'');
       if (nodes.get(parentId)) keepSideAligned(parentId, SIDE_OFFSET);
@@ -337,32 +343,17 @@ function stabilizeAndFit(anim = 200, viewToRestore = null){
 
     setTimeout(() => {
       fixAllPositions(true);
-
       if (viewToRestore){
-        network.moveTo({
-          position: viewToRestore.position,
-          scale: viewToRestore.scale,
-          animation: { duration: anim, easingFunction:"easeInOutQuad" }
-        });
+        network.moveTo({ position:viewToRestore.position, scale:viewToRestore.scale, animation:{ duration:anim, easingFunction:"easeInOutQuad" } });
       } else {
-        network.fit({ animation:{ duration: anim, easingFunction:"easeInOutQuad" } });
+        network.fit({ animation:{ duration:anim, easingFunction:"easeInOutQuad" } });
       }
-
       setStatus("Listo");
     }, 0);
   }, 0);
 }
-
-function captureView(){
-  return {
-    position: network.getViewPosition(),
-    scale: network.getScale()
-  };
-}
-function refreshKeepingZoom(anim = 120){
-  const view = captureView();
-  stabilizeAndFit(anim, view);
-}
+function captureView(){ return { position:network.getViewPosition(), scale:network.getScale() }; }
+function refreshKeepingZoom(anim = 120){ const view = captureView(); stabilizeAndFit(anim, view); }
 /* ====== FIN zoom ====== */
 
 function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
@@ -374,11 +365,10 @@ function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
   mountBox(pid,label,personLevel,extra); addEdge(roleId,pid); openedPersons.add(pid);
 }
 
-/* ===== toggleSubroles con líder por encima y chip lateral ===== */
+/* ===== toggleSubroles: líder por encima + chip lateral ===== */
 function toggleSubroles(roleId, subrolesArr, dataCtx){
   if(!subrolesArr || !subrolesArr.length) return;
 
-  // cerrar
   if (openedSubroles.has(roleId)){
     const leader = subrolesArr.find(sr => isLeaderLabel(sr.name));
     subrolesArr.forEach(sr=>{
@@ -396,7 +386,6 @@ function toggleSubroles(roleId, subrolesArr, dataCtx){
     return;
   }
 
-  // abrir
   const roleLevel       = getLevel(roleId) ?? 3;
   const leader          = subrolesArr.find(sr => isLeaderLabel(sr.name));
   const others          = subrolesArr.filter(sr => !isLeaderLabel(sr.name));
@@ -404,7 +393,6 @@ function toggleSubroles(roleId, subrolesArr, dataCtx){
   const childLevel      = baseLevel + 1;        // nivel de los demás
   const personLevel     = childLevel + 1;
 
-  // 1) líder (si existe)
   if (leader){
     mountBox(leader.id, leader.name, baseLevel);
     addEdge(roleId, leader.id);
@@ -412,7 +400,6 @@ function toggleSubroles(roleId, subrolesArr, dataCtx){
     placeSidePersonFor(leader.id, personText, SIDE_OFFSET);
   }
 
-  // 2) demás subroles
   const attachParent = leader ? leader.id : roleId;
   const theirLevel   = leader ? childLevel : baseLevel;
   const theirPersonL = leader ? personLevel : (baseLevel + 1);
@@ -420,7 +407,6 @@ function toggleSubroles(roleId, subrolesArr, dataCtx){
   others.forEach(sr=>{
     mountBox(sr.id, sr.name, theirLevel);
     addEdge(attachParent, sr.id);
-
     const hasGrandkids = !!getSubrolesArr(dataCtx, sr.id)?.length;
     const personText   = (sr.person || "").trim();
 
@@ -588,6 +574,11 @@ network.on("click",(p)=>{
   const role=(data.roles||[]).find(r=>r.id===id);
   if(role){
     const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
+
+    /* NUEVO: colapsar ramas hermanas al abrir esta */
+    const parentId = getParentId(role.id) || TEAM_ROOT_ID;
+    collapseSiblings(parentId, role.id, data);
+
     if(role.id===CURRENT_LEADER_ID){
       const sid=`${role.id}_S`;
       if(sidePersons.has(sid)){ removeSidePerson(role.id); }
@@ -617,7 +608,6 @@ async function ensureResumen(){
   return resumenData;
 }
 
-/* posiciona el drawer bajo el header */
 function positionDrawer(){
   const header = document.getElementById('appHeader');
   const top = header.getBoundingClientRect().height;
@@ -628,7 +618,7 @@ function setPillColor(){
   const root = document.documentElement;
   if(resumenMode==='ANTES') root.style.setProperty('--pill-active', 'var(--bar-before)');
   else if(resumenMode==='DESPUÉS') root.style.setProperty('--pill-active', 'var(--bar-after)');
-  else root.style.setProperty('--pill-active', 'var(--bar-after)'); /* comparar: morado */
+  else root.style.setProperty('--pill-active', 'var(--bar-after)');
 }
 
 function togglePillsUI(){
@@ -660,7 +650,6 @@ function renderResumen(){
   const rows = rowsForScope();
   const maxVal = Math.max(...rows.map(r => Math.max(r.a, r.d, 1)));
 
-  // BARRAS (solo números)
   let out='';
   rows.forEach(r=>{
     const cls = r.isSub ? 'row sub' : 'row';
@@ -683,7 +672,6 @@ function renderResumen(){
   });
   chart.innerHTML = out;
 
-  // TABLA INFERIOR + TOTALES (suma solo filas de grupo para no duplicar al incluir subdivisiones)
   let th = (resumenMode==='COMPARAR')
             ? `<th>Antes</th><th>Después</th>`
             : `<th>${resumenMode==='ANTES'?'Antes':'Después'}</th>`;
@@ -716,20 +704,13 @@ function renderResumen(){
 
 /* abrir/cerrar (toggle con el mismo botón Resumen) */
 const drawer = document.getElementById('drawer');
-function openDrawer(){
-  positionDrawer();
-  drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); drawerOpen=true;
-}
-function closeDrawer(){
-  drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); drawerOpen=false;
-}
+let drawerOpen=false;
+function openDrawer(){ positionDrawer(); drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); drawerOpen=true; }
+function closeDrawer(){ drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); drawerOpen=false; }
 
 document.getElementById('openSummary').addEventListener('click', async ()=>{
   if(drawerOpen){ closeDrawer(); return; }
-  openDrawer();
-  await ensureResumen();
-  togglePillsUI();
-  renderResumen();
+  openDrawer(); await ensureResumen(); togglePillsUI(); renderResumen();
 });
 window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && drawerOpen) closeDrawer(); });
 window.addEventListener('resize', ()=>{ if(drawerOpen) positionDrawer(); });
