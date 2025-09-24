@@ -96,9 +96,6 @@
       "DEV_FURAG": [
         { "id": "SR_FUR_DEV", "name": "Desarrollador",   "person": "" }
       ],
-      "DEV_WEB_MASTER": [
-        { "id": "SR_WEB_MASTER", "name": "Web Master",   "person": "Miguel Acuña" }
-      ]
     }
   }
 }
