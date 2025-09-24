@@ -26,6 +26,8 @@
     --bar-after:var(--accent);
     --bar-track:#eef2ff;
     --pill-active: var(--bar-after);  /* se cambia dinámicamente según modo */
+
+    --drawer-top: 0px;
   }
 
   *{box-sizing:border-box}
@@ -77,7 +79,8 @@
   .drawer.open .sheet{ transform:translateX(0); }
 
   .sheet__head{
-    display:flex; align-items:center; gap:8px; padding:10px 12px;
+    display:flex; align-items:center; gap:8px;
+    padding:10px 12px; padding-right:52px; /* espacio para la X */
     border-bottom:1px solid var(--border);
     position:sticky; top:0; background:#fff; z-index:5;
   }
@@ -86,8 +89,10 @@
   .pill.active{background:var(--pill-active); border-color:var(--pill-active); color:#fff}
   .spacer{flex:1}
   .xbtn{
-    width:36px; height:36px; border:1px solid var(--border); border-radius:8px;
-    background:#fff; cursor:pointer; font-weight:800; display:inline-flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border:1px solid var(--border); border-radius:8px; background:#fff;
+    cursor:pointer; font-weight:800; color:#111; line-height:1; font-size:20px;
+    display:inline-flex; align-items:center; justify-content:center;
+    position:absolute; right:8px; top:8px; z-index:6;
   }
   .xbtn:hover{ background:#f3f4f6 }
 
@@ -112,6 +117,10 @@
   .summary-table th, .summary-table td{border-bottom:1px solid #e9e9f3; padding:8px 10px; text-align:center; white-space:nowrap;}
   .summary-table thead th{text-align:left; position:sticky; top:0; background:#fff;}
   .summary-table .left{text-align:left}
+  .summary-table tfoot td{font-weight:800; background:#fafafa}
+
+  /* Botón para abrir el drawer */
+  .btn-small{padding:8px 12px; border-radius:12px; font-weight:700; border:1px solid var(--border); background:#fff; cursor:pointer}
 </style>
 </head>
 <body class="mode-despues">
@@ -130,7 +139,7 @@
         <button id="btnAntes" class="btn">Antes</button>
         <button id="btnDespues" class="btn active">Después</button>
 
-        <!-- Abrir el drawer -->
+        <!-- Abrir/cerrar el drawer -->
         <button id="openSummary" class="btn">Resumen</button>
 
         <span id="status">Listo</span>
@@ -166,7 +175,9 @@
         <div id="chart"></div>
 
         <hr class="hr" />
-        <div id="tableWrap" style="min-height:220px"></div>
+        <div id="tableWrap" style="min-height:220px">
+          <!-- tabla abajo -->
+        </div>
       </div>
     </div>
   </aside>
@@ -194,7 +205,7 @@ const OAP_MANUAL_COUNTS = {
 };
 const TEAM_FIXED_COUNTS = {};
 
-/* ================== network (sin cambios funcionales) ================== */
+/* ================== network ================== */
 const LEVEL_Y_GAP = 130;
 const MIN_GAP = 300;
 
@@ -424,6 +435,8 @@ function mountTeam(view="DESPUÉS"){
   const teamOverrides=(TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES")?"ANTES":"DESPUÉS"]) || null;
   addCountsToNodes(data,teamOverrides);
   updateCountsUI(); stabilizeAndFit(160);
+
+  if(drawerOpen) renderResumen();
 }
 
 async function loadTeam(key){
@@ -545,7 +558,7 @@ function setPillColor(){
   const root = document.documentElement;
   if(resumenMode==='ANTES') root.style.setProperty('--pill-active', 'var(--bar-before)');
   else if(resumenMode==='DESPUÉS') root.style.setProperty('--pill-active', 'var(--bar-after)');
-  else root.style.setProperty('--pill-active', 'var(--bar-after)'); /* comparar en morado */
+  else root.style.setProperty('--pill-active', 'var(--bar-after)'); /* comparar: deja morado */
 }
 
 function togglePillsUI(){
@@ -561,15 +574,14 @@ function rowsForScope(){
   const rows=[];
   keys.forEach(k=>{
     const e=resumenData.equipos[k]; if(!e) return;
-    rows.push({ label:e.label||k, a:+(e.antes?.total||0), d:+(e.despues?.total||0), isGroup:true, subs:e.subdivisiones||[] });
+    rows.push({ label:e.label||k, a:e.antes?.total||0, d:e.despues?.total||0, isGroup:true, subs:e.subdivisiones||[] });
     if(includeSubs && Array.isArray(e.subdivisiones)){
-      e.subdivisiones.forEach(s=> rows.push({ label:"• "+s.label, a:+(s.antes||0), d:+(s.despues||0), isGroup:false, isSub:true }));
+      e.subdivisiones.forEach(s=> rows.push({ label:"• "+s.label, a:s.antes||0, d:s.despues||0, isGroup:false, isSub:true }));
     }
   });
   return rows;
 }
 
-/* ---- RENDER (barras + tabla con totales) ---- */
 function renderResumen(){
   if(!resumenData) return;
   const chart=document.getElementById('chart');
@@ -584,52 +596,51 @@ function renderResumen(){
     const cls = r.isSub ? 'row sub' : 'row';
     const aw = Math.round((r.a/maxVal)*100);
     const dw = Math.round((r.d/maxVal)*100);
-
-    if(resumenMode === 'COMPARAR'){
-      out += `<div class="${cls}">
-        <div class="label">${r.label}</div>
-        <div class="track compare">
-          <div class="fill before" style="width:${aw}%"><span>${r.a}</span></div>
-          <div class="fill after"  style="width:${dw}%"><span>${r.d}</span></div>
-        </div>
-      </div>`;
-    }else{
-      const isBefore = (resumenMode==='ANTES');
-      const val = isBefore ? r.a : r.d;
-      const w   = isBefore ? aw  : dw;
-      out += `<div class="${cls}">
-        <div class="label">${r.label}</div>
-        <div class="track">
-          <div class="fill ${isBefore?'before':'after'}" style="width:${w}%"><span>${val}</span></div>
-        </div>
-      </div>`;
-    }
+    const oneMode = (resumenMode!=='COMPARAR');
+    out += `<div class="${cls}">
+      <div class="label">${r.label}</div>
+      ${oneMode
+        ? `<div class="track">
+             <div class="fill ${resumenMode==='ANTES'?'before':'after'}" style="width:${resumenMode==='ANTES'?aw:dw}%">
+               <span>${resumenMode==='ANTES'?r.a:r.d}</span>
+             </div>
+           </div>`
+        : `<div class="track compare">
+             <div class="fill before" style="width:${aw}%">${r.a}</div>
+             <div class="fill after"  style="width:${dw}%">${r.d}</div>
+           </div>`}
+    </div>`;
   });
   chart.innerHTML = out;
 
-  // TABLA + TOTALES
-  let totalA = 0, totalD = 0;
-  rows.forEach(r=>{ totalA += r.a; totalD += r.d; });
+  // TABLA INFERIOR + TOTALES
+  let th = (resumenMode==='COMPARAR')
+            ? `<th>Antes</th><th>Después</th>`
+            : `<th>${resumenMode==='ANTES'?'Antes':'Después'}</th>`;
+  let tbody='';
+  let totalA=0, totalD=0;
+  rows.forEach(r=>{
+    if(r.isGroup){ totalA += Number(r.a||0); totalD += Number(r.d||0); }
+    tbody += `<tr>
+      <td class="left">${r.label}</td>
+      ${resumenMode==='COMPARAR'
+        ? `<td>${r.a}</td><td>${r.d}</td>`
+        : `<td>${resumenMode==='ANTES'?r.a:r.d}</td>`}
+    </tr>`;
+  });
 
-  if(resumenMode === 'COMPARAR'){
-    let body = rows.map(r=>`<tr><td class="left">${r.label}</td><td>${r.a}</td><td>${r.d}</td></tr>`).join('');
-    tableWrap.innerHTML = `
-      <table class="summary-table">
-        <thead><tr><th class="left">Equipos / subdivisiones</th><th>Antes</th><th>Después</th></tr></thead>
-        <tbody>${body}</tbody>
-        <tfoot><tr><td class="left">Total</td><td>${totalA}</td><td>${totalD}</td></tr></tfoot>
-      </table>`;
-  }else{
-    const colTitle = (resumenMode==='ANTES') ? 'Antes' : 'Después';
-    let body = rows.map(r=>`<tr><td class="left">${r.label}</td><td>${(resumenMode==='ANTES')?r.a:r.d}</td></tr>`).join('');
-    const total = (resumenMode==='ANTES') ? totalA : totalD;
-    tableWrap.innerHTML = `
-      <table class="summary-table">
-        <thead><tr><th class="left">Equipos / subdivisiones</th><th>${colTitle}</th></tr></thead>
-        <tbody>${body}</tbody>
-        <tfoot><tr><td class="left">Total</td><td>${total}</td></tr></tfoot>
-      </table>`;
-  }
+  const tfoot = (resumenMode==='COMPARAR')
+    ? `<tfoot><tr><td class="left">Total</td><td>${totalA}</td><td>${totalD}</td></tr></tfoot>`
+    : `<tfoot><tr><td class="left">Total</td><td>${resumenMode==='ANTES'?totalA:totalD}</td></tr></tfoot>`;
+
+  tableWrap.innerHTML = `
+    <table class="summary-table">
+      <thead>
+        <tr><th class="left">Equipos / subdivisiones</th>${th}</tr>
+      </thead>
+      <tbody>${tbody}</tbody>
+      ${tfoot}
+    </table>`;
 }
 
 /* abrir/cerrar */
@@ -642,12 +653,15 @@ function closeDrawer(){
   drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); drawerOpen=false;
 }
 
+/* Toggle con el mismo botón "Resumen" */
 document.getElementById('openSummary').addEventListener('click', async ()=>{
+  if (drawerOpen) { closeDrawer(); return; }
   openDrawer();
   await ensureResumen();
   togglePillsUI();
   renderResumen();
 });
+
 document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
 window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && drawerOpen) closeDrawer(); });
 window.addEventListener('resize', ()=>{ if(drawerOpen) positionDrawer(); });
@@ -675,6 +689,7 @@ loadTeam("oap");
 </script>
 </body>
 </html>
+
 
 
 
