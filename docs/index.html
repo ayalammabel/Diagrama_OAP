@@ -244,6 +244,11 @@ const cleanPhase = (lbl='') => lbl.replace(/\s*[-–]\s*(ANTES|DESPUÉS)\s*$/i,'
 function stripTrailingCount(s){ return String(s).replace(/\s*\(\s*\d+\s*(?:roles?)?\s*\)\s*$/i,'').trim(); }
 function splitTitlePerson(lbl){ if(!lbl) return {title:"", person:""}; const base=cleanPhase(lbl); const m=base.match(/^(.+?)\s*[–-]\s*(.+)$/); return m?{title:m[1].trim(), person:m[2].trim()}:{title:base, person:""}; }
 
+/* === helper para detectar "Líder" === */
+function isLeaderLabel(s){
+  return /\bL[ií]der\b/i.test(String(s||''));
+}
+
 function clearAll(){ nodes.clear(); edges.clear(); expandedRoot.clear(); openedPersons.clear(); openedSubroles.clear(); sidePersons.clear(); dottedArcIds.clear(); }
 function mountBox(id,label,level,extra={}){ nodes.add(Object.assign({ id,label,level,shape:"box",color:{ background:"#fff", border:"#9aa3af" }, borderWidth:1 }, extra)); }
 function addEdge(from,to,extra={}){ const id=`${from}-${to}`; if(!edges.get(id)) edges.add(Object.assign({ id,from,to }, extra)); return id; }
@@ -314,6 +319,7 @@ function stabilizeAndFit(anim = 200, viewToRestore = null){
   setTimeout(() => {
     applyHorizontalSpacingAll(MIN_GAP);
 
+    // Re-centrar OAP y estratega
     if (currentKey === 'oap'){
       if (nodes.get(orgAfter?.id || orgBefore?.id)) {
         nodes.update({ id:(MODE==="ANTES"?orgBefore.id:orgAfter.id), x: 0 });
@@ -322,6 +328,12 @@ function stabilizeAndFit(anim = 200, viewToRestore = null){
       keepJefaPersonSideAlignedFor((MODE==="ANTES") ? orgBefore.id : orgAfter.id);
       if (nodes.get(STRATEGIST_ID)) keepSideAligned(STRATEGIST_ID, SIDE_OFFSET);
     }
+
+    // Re-alinear todos los chips laterales activos
+    sidePersons.forEach(sid=>{
+      const parentId = sid.replace(/_S$/,'');
+      if (nodes.get(parentId)) keepSideAligned(parentId, SIDE_OFFSET);
+    });
 
     setTimeout(() => {
       fixAllPositions(true);
@@ -351,7 +363,6 @@ function refreshKeepingZoom(anim = 120){
   const view = captureView();
   stabilizeAndFit(anim, view);
 }
-
 /* ====== FIN zoom ====== */
 
 function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
@@ -363,23 +374,65 @@ function togglePersonNode(roleId,personLabel,levelIfUnknown,planta=false){
   mountBox(pid,label,personLevel,extra); addEdge(roleId,pid); openedPersons.add(pid);
 }
 
-function toggleSubroles(roleId,subrolesArr,dataCtx){
+/* ===== toggleSubroles con líder por encima y chip lateral ===== */
+function toggleSubroles(roleId, subrolesArr, dataCtx){
   if(!subrolesArr || !subrolesArr.length) return;
-  if(openedSubroles.has(roleId)){
-    subrolesArr.forEach(sr=>{ const rid=sr.id, pid=`${rid}_P`; try{nodes.remove(pid);}catch(_){ } try{edges.remove(`${rid}-${pid}`);}catch(_){ } try{nodes.remove(rid);}catch(_){ } try{edges.remove(`${roleId}-${rid}`);}catch(_){ } openedPersons.delete(pid); });
-    openedSubroles.delete(roleId); return;
-  }
-  const roleLevel=getLevel(roleId)??3;
-  const CURRENT_LEADER_ID=(MODE==="ANTES")?LEADER_NODE_ID_BEFORE:LEADER_NODE_ID_AFTER;
-  const isLeaderParent=(CURRENT_LEADER_ID && roleId===CURRENT_LEADER_ID);
-  const subLevel=roleLevel+(isLeaderParent?2:1); const personLevel=subLevel+1;
 
-  subrolesArr.forEach(sr=>{
-    mountBox(sr.id,sr.name,subLevel); addEdge(roleId,sr.id);
-    const hasGrandkids=!!getSubrolesArr(dataCtx,sr.id)?.length; const personText=(sr.person||"").trim();
-    if(personText){ mountBox(`${sr.id}_P`,personText,personLevel,{font:{italics:true}}); addEdge(sr.id,`${sr.id}_P`); openedPersons.add(`${sr.id}_P`); }
-    else if(!hasGrandkids){ mountBox(`${sr.id}_P`,"Nuevo perfil",personLevel,{font:{italics:true}}); addEdge(sr.id,`${sr.id}_P`); openedPersons.add(`${sr.id}_P`); }
+  // cerrar
+  if (openedSubroles.has(roleId)){
+    const leader = subrolesArr.find(sr => isLeaderLabel(sr.name));
+    subrolesArr.forEach(sr=>{
+      const rid  = sr.id;
+      const pid  = `${rid}_P`;
+      try{ nodes.remove(pid); }catch(_){}
+      try{ edges.remove(`${rid}-${pid}`); }catch(_){}
+      try{ nodes.remove(rid); }catch(_){}
+      try{ edges.remove(`${roleId}-${rid}`); }catch(_){}
+      if (leader) { try{ edges.remove(`${leader.id}-${rid}`); }catch(_){ } }
+      openedPersons.delete(pid);
+    });
+    if (leader) removeSidePerson(leader.id);
+    openedSubroles.delete(roleId);
+    return;
+  }
+
+  // abrir
+  const roleLevel       = getLevel(roleId) ?? 3;
+  const leader          = subrolesArr.find(sr => isLeaderLabel(sr.name));
+  const others          = subrolesArr.filter(sr => !isLeaderLabel(sr.name));
+  const baseLevel       = roleLevel + 1;        // nivel del líder
+  const childLevel      = baseLevel + 1;        // nivel de los demás
+  const personLevel     = childLevel + 1;
+
+  // 1) líder (si existe)
+  if (leader){
+    mountBox(leader.id, leader.name, baseLevel);
+    addEdge(roleId, leader.id);
+    const personText = (leader.person || "Nuevo perfil").trim();
+    placeSidePersonFor(leader.id, personText, SIDE_OFFSET);
+  }
+
+  // 2) demás subroles
+  const attachParent = leader ? leader.id : roleId;
+  const theirLevel   = leader ? childLevel : baseLevel;
+  const theirPersonL = leader ? personLevel : (baseLevel + 1);
+
+  others.forEach(sr=>{
+    mountBox(sr.id, sr.name, theirLevel);
+    addEdge(attachParent, sr.id);
+
+    const hasGrandkids = !!getSubrolesArr(dataCtx, sr.id)?.length;
+    const personText   = (sr.person || "").trim();
+
+    if (personText){
+      mountBox(`${sr.id}_P`, personText, theirPersonL, { font:{ italics:true } });
+      addEdge(sr.id, `${sr.id}_P`); openedPersons.add(`${sr.id}_P`);
+    } else if (!hasGrandkids){
+      mountBox(`${sr.id}_P`, "Nuevo perfil", theirPersonL, { font:{ italics:true } });
+      addEdge(sr.id, `${sr.id}_P`); openedPersons.add(`${sr.id}_P`);
+    }
   });
+
   openedSubroles.add(roleId);
 }
 
@@ -425,7 +478,7 @@ function mountOAP(view="DESPUÉS"){
   if(hasStrategist){ mountBox(STRATEGIST_ID,STRATEGIST.label,1); addEdge(data.id,STRATEGIST_ID); nodes.update({id:STRATEGIST_ID,x:0}); }
   const levelTeams=hasStrategist?2:1;
   (data.roles||[]).forEach(r=>{ mountBox(r.id,r.name,levelTeams); addEdge(data.id,r.id); });
-  updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160); /* fit en cambio grande */
+  updateCountsUI(); enrichCountsForOAP(data.roles); stabilizeAndFit(160);
 }
 
 function addCountsToNodes(data,overrides){
@@ -453,7 +506,7 @@ function mountTeam(view="DESPUÉS"){
   }
   const teamOverrides=(TEAM_FIXED_COUNTS[currentKey] && TEAM_FIXED_COUNTS[currentKey][(MODE==="ANTES")?"ANTES":"DESPUÉS"]) || null;
   addCountsToNodes(data,teamOverrides);
-  updateCountsUI(); stabilizeAndFit(160); /* fit en cambio grande */
+  updateCountsUI(); stabilizeAndFit(160);
 }
 
 async function loadTeam(key){
@@ -575,7 +628,7 @@ function setPillColor(){
   const root = document.documentElement;
   if(resumenMode==='ANTES') root.style.setProperty('--pill-active', 'var(--bar-before)');
   else if(resumenMode==='DESPUÉS') root.style.setProperty('--pill-active', 'var(--bar-after)');
-  else root.style.setProperty('--pill-active', 'var(--bar-after)'); /* comparar: deja morado */
+  else root.style.setProperty('--pill-active', 'var(--bar-after)'); /* comparar: morado */
 }
 
 function togglePillsUI(){
