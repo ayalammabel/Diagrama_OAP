@@ -8,9 +8,9 @@
   "before": {
     "label": "Políticas, Proyectos, Planes y Presupuestos (6 roles) – ANTES",
     "roles": [
-      { "id": "B_LIDER",    "name": "Líder",               "person": "Nelly García" },
-      { "id": "B_REF1",     "name": "Referente",           "person": "Yuly Sánchez" },
-      { "id": "B_REF2",     "name": "Referente",           "person": "Liliana Hernandez" },
+      { "id": "B_LIDER",    "name": "Referenta",               "person": "Nelly García" },
+      { "id": "B_REF1",     "name": "Referenta",           "person": "Yuly Sánchez" },
+      { "id": "B_REF2",     "name": "Referenta",           "person": "Liliana Hernandez" },
       { "id": "B_REF3",     "name": "Referente",           "person": "McAllister Granados" },
       { "id": "B_POLITICA", "name": "Políticas Públicas",  "person": "Andrea Bello" },
       { "id": "B_PRESUP",   "name": "Presupuesto",         "person": "Michael Gil" }
