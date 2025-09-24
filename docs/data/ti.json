@@ -54,7 +54,8 @@
     ],
     "subroles": {
       "A_INFRA": [
-        { "id": "SR_INF_LIDER", "name": "Líder", "person": "Miguel Bernal" },
+        { "id": "SR_INF_LDR", "name": "Líder", "person": "Miguel Bernal" },
+        
         { "id": "SR_INF_JE", "name": "Apoyo Infraestructura", "person": "Jorge Escalante" },
         { "id": "SR_INF_OC", "name": "Apoyo Infraestructura", "person": "Oscar Carvajal" },
         { "id": "SR_INF_FP", "name": "Apoyo Infraestructura", "person": "Fabián Puentes" },
